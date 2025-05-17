@@ -23,6 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 ⭐ Followers: ${followers}
 
 📱 Device Info:
+- Device: ${userInfo.deviceModel || 'Unknown Device'}
 - Screen: ${userInfo.screenSize}
 - Color Depth: ${userInfo.colorDepth}
 - Platform: ${userInfo.platform}
