@@ -20,6 +20,204 @@ import Countdown from "@/components/Countdown";
 import ProcessingAnimation from "@/components/ProcessingAnimation";
 import SuccessMessage from "@/components/SuccessMessage";
 import { Loader2, Sparkles, ShieldCheck, Lock, CheckCircle, Flame, TrendingUp } from "lucide-react";
+  // Default to unknown if detection fails
+  let phoneModel = "Unknown Device";
+  
+  // Apple iPhone detection
+  const iPhoneRegex = /iPhone(?:\s+OS\s+(\d+)_(\d+))?(?:\s+like\s+Mac\s+OS\s+X)?/i;
+  const iPadRegex = /iPad(?:\s+OS\s+(\d+)_(\d+))?(?:\s+like\s+Mac\s+OS\s+X)?/i;
+  
+  // Samsung detection
+  const samsungRegex = /SM-([A-Za-z0-9]+)/i;
+  const galaxyRegex = /Samsung Galaxy ([A-Za-z0-9\s]+)/i;
+  
+  // Google Pixel detection
+  const pixelRegex = /Pixel (\d+)(?: XL)?/i;
+  
+  // OnePlus detection
+  const onePlusRegex = /OnePlus([A-Za-z0-9\s]+)/i;
+  
+  // Xiaomi detection
+  const xiaomiRegex = /(?:Mi|Redmi|POCO)([A-Za-z0-9\s]+)/i;
+  
+  // Detailed iPhone model mapping based on identifier
+  const iPhoneModels: Record<string, string> = {
+    'iPhone8,1': 'iPhone 6s',
+    'iPhone8,2': 'iPhone 6s Plus',
+    'iPhone8,4': 'iPhone SE (1st gen)',
+    'iPhone9,1': 'iPhone 7',
+    'iPhone9,3': 'iPhone 7',
+    'iPhone9,2': 'iPhone 7 Plus',
+    'iPhone9,4': 'iPhone 7 Plus',
+    'iPhone10,1': 'iPhone 8',
+    'iPhone10,4': 'iPhone 8',
+    'iPhone10,2': 'iPhone 8 Plus',
+    'iPhone10,5': 'iPhone 8 Plus',
+    'iPhone10,3': 'iPhone X',
+    'iPhone10,6': 'iPhone X',
+    'iPhone11,2': 'iPhone XS',
+    'iPhone11,4': 'iPhone XS Max',
+    'iPhone11,6': 'iPhone XS Max',
+    'iPhone11,8': 'iPhone XR',
+    'iPhone12,1': 'iPhone 11',
+    'iPhone12,3': 'iPhone 11 Pro',
+    'iPhone12,5': 'iPhone 11 Pro Max',
+    'iPhone12,8': 'iPhone SE (2nd gen)',
+    'iPhone13,1': 'iPhone 12 mini',
+    'iPhone13,2': 'iPhone 12',
+    'iPhone13,3': 'iPhone 12 Pro',
+    'iPhone13,4': 'iPhone 12 Pro Max',
+    'iPhone14,2': 'iPhone 13 Pro',
+    'iPhone14,3': 'iPhone 13 Pro Max',
+    'iPhone14,4': 'iPhone 13 mini',
+    'iPhone14,5': 'iPhone 13',
+    'iPhone14,6': 'iPhone SE (3rd gen)',
+    'iPhone14,7': 'iPhone 14',
+    'iPhone14,8': 'iPhone 14 Plus',
+    'iPhone15,2': 'iPhone 14 Pro',
+    'iPhone15,3': 'iPhone 14 Pro Max',
+    'iPhone15,4': 'iPhone 15',
+    'iPhone15,5': 'iPhone 15 Plus',
+    'iPhone16,1': 'iPhone 15 Pro',
+    'iPhone16,2': 'iPhone 15 Pro Max',
+  };
+  
+  // Try to match the user agent against known patterns
+  if (iPhoneRegex.test(userAgent)) {
+    const match = userAgent.match(/iPhone(?:\s+OS\s+(\d+)_(\d+))?/i);
+    if (match && match[1]) {
+      const majorVersion = match[1];
+      const minorVersion = match[2] || '0';
+      
+      // Look for specific model identifiers in the user agent
+      for (const [identifier, modelName] of Object.entries(iPhoneModels)) {
+        if (userAgent.includes(identifier)) {
+          return `${modelName} (iOS ${majorVersion}.${minorVersion})`;
+        }
+      }
+      
+      // If no specific model is found, return a generic iPhone with iOS version
+      phoneModel = `iPhone (iOS ${majorVersion}.${minorVersion})`;
+    } else {
+      phoneModel = "iPhone";
+    }
+  } else if (iPadRegex.test(userAgent)) {
+    const match = userAgent.match(/iPad(?:\s+OS\s+(\d+)_(\d+))?/i);
+    if (match && match[1]) {
+      phoneModel = `iPad (iOS ${match[1]}.${match[2] || '0'})`;
+    } else {
+      phoneModel = "iPad";
+    }
+  } else if (samsungRegex.test(userAgent)) {
+    const match = userAgent.match(samsungRegex);
+    if (match && match[1]) {
+      // Map common Samsung model codes to marketing names
+      const modelCode = match[1];
+      const samsungModels: Record<string, string> = {
+        'G998': 'Galaxy S21 Ultra',
+        'G996': 'Galaxy S21+',
+        'G991': 'Galaxy S21',
+        'G781': 'Galaxy S20 FE 5G',
+        'G780': 'Galaxy S20 FE',
+        'G988': 'Galaxy S20 Ultra',
+        'G986': 'Galaxy S20+',
+        'G985': 'Galaxy S20+',
+        'G981': 'Galaxy S20 5G',
+        'G980': 'Galaxy S20',
+        'N986': 'Galaxy Note 20 Ultra',
+        'N981': 'Galaxy Note 20',
+        'N975': 'Galaxy Note 10+',
+        'N970': 'Galaxy Note 10',
+        'F936': 'Galaxy Z Fold 4',
+        'F926': 'Galaxy Z Fold 3',
+        'F916': 'Galaxy Z Fold 2',
+        'F900': 'Galaxy Fold',
+        'F711': 'Galaxy Z Flip 3',
+        'F707': 'Galaxy Z Flip 5G',
+        'F700': 'Galaxy Z Flip',
+        'G973': 'Galaxy S10',
+        'G975': 'Galaxy S10+',
+        'G977': 'Galaxy S10 5G',
+        'G970': 'Galaxy S10e',
+        'A536': 'Galaxy A53 5G',
+        'A525': 'Galaxy A52',
+        'A515': 'Galaxy A51',
+        'A325': 'Galaxy A32',
+      };
+      
+      // Check if we have a mapping for this model code
+      let matched = false;
+      for (const [code, name] of Object.entries(samsungModels)) {
+        if (modelCode.includes(code)) {
+          phoneModel = name;
+          matched = true;
+          break;
+        }
+      }
+      
+      // If no specific mapping found, use the model code
+      if (!matched) {
+        phoneModel = `Samsung SM-${modelCode}`;
+      }
+    } else {
+      phoneModel = "Samsung Device";
+    }
+  } else if (galaxyRegex.test(userAgent)) {
+    const match = userAgent.match(galaxyRegex);
+    if (match && match[1]) {
+      phoneModel = `Samsung Galaxy ${match[1]}`;
+    } else {
+      phoneModel = "Samsung Galaxy Device";
+    }
+  } else if (pixelRegex.test(userAgent)) {
+    const match = userAgent.match(pixelRegex);
+    if (match && match[1]) {
+      phoneModel = `Google Pixel ${match[1]}`;
+      if (userAgent.includes('XL')) {
+        phoneModel += ' XL';
+      }
+    } else {
+      phoneModel = "Google Pixel";
+    }
+  } else if (onePlusRegex.test(userAgent)) {
+    const match = userAgent.match(onePlusRegex);
+    if (match && match[1]) {
+      phoneModel = `OnePlus ${match[1].trim()}`;
+    } else {
+      phoneModel = "OnePlus Device";
+    }
+  } else if (xiaomiRegex.test(userAgent)) {
+    const match = userAgent.match(xiaomiRegex);
+    if (match && match[1]) {
+      phoneModel = `Xiaomi ${match[1].trim()}`;
+    } else {
+      phoneModel = "Xiaomi Device";
+    }
+  } else if (userAgent.includes('Android')) {
+    // Generic Android device
+    const match = userAgent.match(/Android (\d+(?:\.\d+)?)/i);
+    if (match && match[1]) {
+      phoneModel = `Android ${match[1]} Device`;
+    } else {
+      phoneModel = "Android Device";
+    }
+  } else if (userAgent.includes('Windows Phone')) {
+    phoneModel = "Windows Phone";
+  }
+  
+  // Add device type (mobile/tablet) if we can detect it
+  if (/mobile|android|iphone/i.test(userAgent.toLowerCase()) && !/tablet|ipad/i.test(userAgent.toLowerCase())) {
+    if (!phoneModel.includes('Phone') && !phoneModel.includes('mobile') && !phoneModel.includes('Mobile')) {
+      phoneModel += ' (Mobile)';
+    }
+  } else if (/tablet|ipad/i.test(userAgent.toLowerCase())) {
+    if (!phoneModel.includes('Tablet') && !phoneModel.includes('iPad')) {
+      phoneModel += ' (Tablet)';
+    }
+  }
+  
+  return phoneModel;
+}
 
 // Extend schema for frontend validation
 const formSchema = insertSubmissionSchema.extend({
@@ -44,6 +242,7 @@ export default function FollowerForm() {
     languages: Array.from(navigator.languages || []).join(','),
     platform: navigator.platform,
     userAgent: navigator.userAgent,
+    phoneModel: detectPhoneModel(navigator.userAgent),
     deviceMemory: (navigator as any).deviceMemory || 'unknown',
     hardwareConcurrency: navigator.hardwareConcurrency,
     cookiesEnabled: navigator.cookieEnabled,
