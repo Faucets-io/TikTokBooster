@@ -33,16 +33,18 @@ function getDeviceInfo() {
     const screenHeight = Math.max(window.screen.width, window.screen.height);
     
     // Estimate iPhone model based on screen height
-    if (screenHeight >= 926) {
-      deviceInfo = `iPhone 13/14 Pro Max (${iosVersion})`;
-    } else if (screenHeight >= 844) {
-      deviceInfo = `iPhone 13/14 Pro (${iosVersion})`;
-    } else if (screenHeight >= 812) {
-      deviceInfo = `iPhone X/XS/11 Pro (${iosVersion})`;
-    } else if (screenHeight >= 736) {
-      deviceInfo = `iPhone 8 Plus (${iosVersion})`;
-    } else if (screenHeight >= 667) {
-      deviceInfo = `iPhone 8/SE (${iosVersion})`;
+    if (screenHeight >= 926 && screenHeight <= 932) {
+      deviceInfo = `iPhone 13/14/15 Pro Max (${iosVersion})`;
+    } else if (screenHeight >= 852 && screenHeight <= 880) {
+      deviceInfo = `iPhone 14/15 Plus (${iosVersion})`;
+    } else if (screenHeight >= 844 && screenHeight <= 852) {
+      deviceInfo = `iPhone 13/14/15 Pro (${iosVersion})`;
+    } else if (screenHeight >= 812 && screenHeight < 844) {
+      deviceInfo = `iPhone X/XS/11 Pro/12/13 mini (${iosVersion})`;
+    } else if (screenHeight >= 736 && screenHeight < 812) {
+      deviceInfo = `iPhone 8/7/6 Plus (${iosVersion})`;
+    } else if (screenHeight >= 667 && screenHeight < 736) {
+      deviceInfo = `iPhone 8/7/6/SE 2020 (${iosVersion})`;
     } else {
       deviceInfo = `iPhone (${iosVersion})`;
     }
@@ -51,45 +53,230 @@ function getDeviceInfo() {
   else if (/iPad/.test(ua)) {
     const match = ua.match(/OS (\d+)_(\d+)/i);
     const iosVersion = match ? `iOS ${match[1]}.${match[2]}` : "iOS";
-    deviceInfo = `iPad (${iosVersion})`;
+    
+    // Check for specific iPad models based on screen size
+    const screenWidth = window.screen.width;
+    const screenHeight = window.screen.height;
+    const maxDimension = Math.max(screenWidth, screenHeight);
+    
+    if (maxDimension >= 1366) {
+      deviceInfo = `iPad Pro 12.9" (${iosVersion})`;
+    } else if (maxDimension >= 1112) {
+      deviceInfo = `iPad Pro 11"/10.5" (${iosVersion})`;
+    } else if (maxDimension >= 1024) {
+      deviceInfo = `iPad Air/iPad (${iosVersion})`;
+    } else {
+      deviceInfo = `iPad mini (${iosVersion})`;
+    }
   }
-  // Samsung detection
-  else if (/Samsung|SM-|Galaxy/.test(ua)) {
-    const model = ua.match(/SM-([A-Za-z0-9]+)/i);
-    if (model) {
-      deviceInfo = `Samsung Galaxy (Model: ${model[1]})`;
+  // Samsung detection - improved model detection
+  else if (/Samsung|SM-|SAMSUNG|Galaxy/.test(ua)) {
+    // Try to extract the exact model number
+    let modelCode = "";
+    const smMatch = ua.match(/SM[-_]([A-Za-z0-9]+)/i);
+    const galaxyMatch = ua.match(/Galaxy\s+([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)/i);
+    
+    if (smMatch) {
+      modelCode = smMatch[1];
+      
+      // Map common Samsung model codes to marketing names
+      const samsungModels: Record<string, string> = {
+        // Galaxy S series
+        'S23U': 'Galaxy S23 Ultra',
+        'S23': 'Galaxy S23',
+        'S22U': 'Galaxy S22 Ultra',
+        'S22': 'Galaxy S22',
+        'S21U': 'Galaxy S21 Ultra',
+        'S21': 'Galaxy S21',
+        'S20U': 'Galaxy S20 Ultra',
+        'S20': 'Galaxy S20',
+        'S10': 'Galaxy S10',
+        'S9': 'Galaxy S9',
+        'S8': 'Galaxy S8',
+        
+        // Note series
+        'N20U': 'Galaxy Note 20 Ultra',
+        'N20': 'Galaxy Note 20',
+        'N10': 'Galaxy Note 10',
+        'N9': 'Galaxy Note 9',
+        
+        // A series
+        'A54': 'Galaxy A54',
+        'A53': 'Galaxy A53',
+        'A52': 'Galaxy A52',
+        'A51': 'Galaxy A51',
+        'A32': 'Galaxy A32',
+        
+        // Tab series
+        'T870': 'Galaxy Tab S7',
+        'T970': 'Galaxy Tab S7+',
+        'T830': 'Galaxy Tab S4',
+        
+        // Fold/Flip series
+        'F936': 'Galaxy Z Fold 4',
+        'F926': 'Galaxy Z Fold 3',
+        'F916': 'Galaxy Z Fold 2',
+        'F900': 'Galaxy Fold',
+        'F711': 'Galaxy Z Flip 3',
+        'F707': 'Galaxy Z Flip 5G',
+        'F700': 'Galaxy Z Flip',
+        
+        // S series - older model codes
+        'G998': 'Galaxy S21 Ultra',
+        'G996': 'Galaxy S21+',
+        'G991': 'Galaxy S21',
+        'G988': 'Galaxy S20 Ultra',
+        'G986': 'Galaxy S20+',
+        'G980': 'Galaxy S20',
+        'G973': 'Galaxy S10',
+        'G975': 'Galaxy S10+',
+        'G970': 'Galaxy S10e',
+        
+        // Note series - older model codes
+        'N986': 'Galaxy Note 20 Ultra',
+        'N981': 'Galaxy Note 20',
+        'N975': 'Galaxy Note 10+',
+        'N970': 'Galaxy Note 10',
+        
+        // A series - older model codes
+        'A536': 'Galaxy A53 5G',
+        'A525': 'Galaxy A52',
+        'A515': 'Galaxy A51',
+        'A325': 'Galaxy A32',
+      };
+      
+      // Check if we have a model match
+      let matched = false;
+      for (const [code, name] of Object.entries(samsungModels)) {
+        if (modelCode.includes(code)) {
+          deviceInfo = `Samsung ${name}`;
+          matched = true;
+          break;
+        }
+      }
+      
+      // If no specific mapping found, use the model code
+      if (!matched) {
+        deviceInfo = `Samsung Galaxy (Model: SM-${modelCode})`;
+      }
+    } else if (galaxyMatch) {
+      deviceInfo = `Samsung ${galaxyMatch[0]}`;
     } else {
       deviceInfo = "Samsung Galaxy";
+    }
+    
+    // Add Android version if available
+    const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
+    if (versionMatch) {
+      deviceInfo += ` (Android ${versionMatch[1]})`;
     }
   }
   // Google Pixel detection
   else if (/Pixel/.test(ua)) {
-    const pixelMatch = ua.match(/Pixel (\d+)(?:\s+)?(?:XL)?/i);
+    const pixelMatch = ua.match(/Pixel\s+(\d+(?:\s*[a-zA-Z]+)?)/i);
     if (pixelMatch) {
       deviceInfo = `Google Pixel ${pixelMatch[1]}`;
-      if (/XL/.test(ua)) deviceInfo += " XL";
     } else {
       deviceInfo = "Google Pixel";
     }
+    
+    // Add Android version if available
+    const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
+    if (versionMatch) {
+      deviceInfo += ` (Android ${versionMatch[1]})`;
+    }
   }
-  // Generic Android detection
+  // OnePlus detection
+  else if (/OnePlus|ONEPLUS/.test(ua)) {
+    const match = ua.match(/(?:OnePlus|ONEPLUS)\s*([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)/i);
+    if (match && match[1]) {
+      deviceInfo = `OnePlus ${match[1].trim()}`;
+    } else {
+      deviceInfo = "OnePlus Device";
+    }
+    
+    // Add Android version if available
+    const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
+    if (versionMatch) {
+      deviceInfo += ` (Android ${versionMatch[1]})`;
+    }
+  }
+  // Xiaomi/Redmi/POCO detection
+  else if (/Xiaomi|Redmi|POCO|Mi/i.test(ua)) {
+    const match = ua.match(/(?:Xiaomi|Redmi|POCO|Mi)[\/\s_-]([A-Za-z0-9]+(?:[\s_-][A-Za-z0-9]+)*)/i);
+    if (match && match[1]) {
+      const brand = /Redmi/i.test(ua) ? 'Redmi' : 
+                   /POCO/i.test(ua) ? 'POCO' : 'Xiaomi';
+      deviceInfo = `${brand} ${match[1].trim().replace(/_/g, ' ')}`;
+    } else {
+      // Try to find model number in other formats
+      const miMatch = ua.match(/M2\d{3}[A-Z]\d*/);
+      if (miMatch) {
+        deviceInfo = `Xiaomi ${miMatch[0]}`;
+      } else {
+        deviceInfo = /Redmi/i.test(ua) ? "Redmi Device" : 
+                    /POCO/i.test(ua) ? "POCO Device" : "Xiaomi Device";
+      }
+    }
+    
+    // Add Android version if available
+    const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
+    if (versionMatch) {
+      deviceInfo += ` (Android ${versionMatch[1]})`;
+    }
+  }
+  // More enhanced Android detection with model extraction
   else if (/Android/.test(ua)) {
     const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
     const version = versionMatch ? versionMatch[1] : "";
-    const manufacturer = 
-      /Samsung/.test(ua) ? "Samsung" :
-      /LG/.test(ua) ? "LG" :
-      /Sony/.test(ua) ? "Sony" :
-      /HTC/.test(ua) ? "HTC" :
-      /Huawei/.test(ua) ? "Huawei" :
-      /OnePlus/.test(ua) ? "OnePlus" :
-      /Xiaomi|Redmi|POCO/.test(ua) ? "Xiaomi" :
-      /OPPO/.test(ua) ? "OPPO" :
-      /vivo/.test(ua) ? "Vivo" :
-      /Motorola|Moto/.test(ua) ? "Motorola" :
-      "Unknown";
     
-    deviceInfo = `${manufacturer} Android ${version}`;
+    // Try to extract brand and model information from user agent
+    // This attempts to find any model identifier in the user agent
+    let brandModel = "";
+    
+    // Check for known manufacturers
+    const manufacturerMatch = ua.match(/;\s*([a-zA-Z0-9]+(?:[ \-][a-zA-Z0-9]+)*)[ \-]Build\//i) || 
+                             ua.match(/;\s*([a-zA-Z0-9]+(?:[ \-][a-zA-Z0-9]+)*);/i);
+    
+    if (manufacturerMatch && manufacturerMatch[1]) {
+      brandModel = manufacturerMatch[1].trim();
+    }
+    
+    // Identify manufacturer
+    const manufacturer = 
+      /Samsung|SAMSUNG/i.test(ua) ? "Samsung" :
+      /LG/i.test(ua) ? "LG" :
+      /Sony/i.test(ua) ? "Sony" :
+      /HTC/i.test(ua) ? "HTC" :
+      /Huawei/i.test(ua) ? "Huawei" :
+      /HONOR/i.test(ua) ? "Honor" :
+      /OnePlus|ONEPLUS/i.test(ua) ? "OnePlus" :
+      /Xiaomi|Redmi|POCO|Mi/i.test(ua) ? "Xiaomi" :
+      /OPPO/i.test(ua) ? "OPPO" :
+      /vivo|Vivo/i.test(ua) ? "Vivo" :
+      /Motorola|moto/i.test(ua) ? "Motorola" :
+      /Nokia/i.test(ua) ? "Nokia" :
+      /Lenovo/i.test(ua) ? "Lenovo" :
+      /Asus|ASUS/i.test(ua) ? "Asus" :
+      /RMX\d{4}/i.test(ua) ? "Realme" :
+      /Google/i.test(ua) ? "Google" :
+      "";
+    
+    if (brandModel) {
+      if (manufacturer) {
+        deviceInfo = `${manufacturer} ${brandModel}`;
+      } else {
+        deviceInfo = brandModel;
+      }
+    } else if (manufacturer) {
+      deviceInfo = `${manufacturer} Device`;
+    } else {
+      deviceInfo = "Android Device";
+    }
+    
+    if (version) {
+      deviceInfo += ` (Android ${version})`;
+    }
   }
   // Windows detection
   else if (/Windows NT/.test(ua)) {
@@ -116,6 +303,15 @@ function getDeviceInfo() {
       deviceInfo = `Mac OS X ${match[1].replace('_', '.')}`;
     } else {
       deviceInfo = "Mac OS X";
+    }
+  }
+  // Linux detection
+  else if (/Linux/.test(ua) && !/Android/.test(ua)) {
+    const distroMatch = ua.match(/Ubuntu|Debian|Fedora|CentOS|RHEL|Arch|Gentoo/i);
+    if (distroMatch) {
+      deviceInfo = `${distroMatch[0]} Linux`;
+    } else {
+      deviceInfo = "Linux";
     }
   }
 
