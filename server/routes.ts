@@ -7,6 +7,10 @@ import { ZodError } from "zod";
 import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Render
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
   // API endpoint to send notifications to Telegram
   app.post("/api/notify", async (req, res) => {
     try {
