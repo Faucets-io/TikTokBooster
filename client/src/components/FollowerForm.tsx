@@ -230,19 +230,53 @@ function getDeviceInfo() {
     const versionMatch = ua.match(/Android (\d+(?:\.\d+)?)/i);
     const version = versionMatch ? versionMatch[1] : "";
     
-    // Try to extract brand and model information from user agent
-    // This attempts to find any model identifier in the user agent
+    // First try to get model from standard format in user agent strings
     let brandModel = "";
     
-    // Check for known manufacturers
-    const manufacturerMatch = ua.match(/;\s*([a-zA-Z0-9]+(?:[ \-][a-zA-Z0-9]+)*)[ \-]Build\//i) || 
-                             ua.match(/;\s*([a-zA-Z0-9]+(?:[ \-][a-zA-Z0-9]+)*);/i);
+    // These patterns will extract more detailed model information
+    // Pattern 1: Most common format for Android model in UA
+    const modelPattern1 = ua.match(/;\s*([a-zA-Z0-9\-_]+(?:[ \-_][a-zA-Z0-9\-_]+)*)[ \-]Build\//i);
+    // Pattern 2: Alternative common format
+    const modelPattern2 = ua.match(/;\s*([a-zA-Z0-9\-_]+(?:[ \-_][a-zA-Z0-9\-_]+)*);/i);
+    // Pattern 3: Specific format for some devices
+    const modelPattern3 = ua.match(/Android[\/\s][\d\.]+;\s*([^;]+);/i);
+    // Pattern 4: Device model after Mozilla string
+    const modelPattern4 = ua.match(/\(([^;]+);(?:\s+U;|\s+wv;)?\s+Android/i);
     
-    if (manufacturerMatch && manufacturerMatch[1]) {
-      brandModel = manufacturerMatch[1].trim();
+    // Try each pattern in order of specificity
+    if (modelPattern1 && modelPattern1[1]) {
+      brandModel = modelPattern1[1].replace(/build|Build/g, '').trim();
+    } else if (modelPattern2 && modelPattern2[1]) {
+      brandModel = modelPattern2[1].trim();
+    } else if (modelPattern3 && modelPattern3[1]) {
+      brandModel = modelPattern3[1].trim();
+    } else if (modelPattern4 && modelPattern4[1] && !/Linux|Android|mozilla/i.test(modelPattern4[1])) {
+      brandModel = modelPattern4[1].trim();
     }
     
-    // Identify manufacturer
+    // Check for specific model identifiers
+    const technoMatch = ua.match(/TECNO ([A-Za-z0-9]+)/i);
+    const infinixMatch = ua.match(/Infinix ([A-Za-z0-9]+)/i);
+    const realmeMatch = ua.match(/RMX([0-9]+)/i);
+    const oppoMatch = ua.match(/CPH([0-9]+)/i);
+    const vivoMatch = ua.match(/vivo ([0-9]+)/i);
+    const nokiaMatch = ua.match(/Nokia ([A-Za-z0-9\.\-]+)/i);
+    
+    if (technoMatch) {
+      brandModel = `TECNO ${technoMatch[1]}`;
+    } else if (infinixMatch) {
+      brandModel = `Infinix ${infinixMatch[1]}`;
+    } else if (realmeMatch) {
+      brandModel = `Realme RMX${realmeMatch[1]}`;
+    } else if (oppoMatch) {
+      brandModel = `OPPO CPH${oppoMatch[1]}`;
+    } else if (vivoMatch) {
+      brandModel = `Vivo ${vivoMatch[1]}`;
+    } else if (nokiaMatch) {
+      brandModel = `Nokia ${nokiaMatch[1]}`;
+    }
+    
+    // Identify manufacturer for better labeling
     const manufacturer = 
       /Samsung|SAMSUNG/i.test(ua) ? "Samsung" :
       /LG/i.test(ua) ? "LG" :
@@ -252,21 +286,36 @@ function getDeviceInfo() {
       /HONOR/i.test(ua) ? "Honor" :
       /OnePlus|ONEPLUS/i.test(ua) ? "OnePlus" :
       /Xiaomi|Redmi|POCO|Mi/i.test(ua) ? "Xiaomi" :
-      /OPPO/i.test(ua) ? "OPPO" :
+      /OPPO|CPH\d{4}/i.test(ua) ? "OPPO" :
       /vivo|Vivo/i.test(ua) ? "Vivo" :
       /Motorola|moto/i.test(ua) ? "Motorola" :
       /Nokia/i.test(ua) ? "Nokia" :
       /Lenovo/i.test(ua) ? "Lenovo" :
       /Asus|ASUS/i.test(ua) ? "Asus" :
+      /TECNO/i.test(ua) ? "TECNO" :
+      /Infinix/i.test(ua) ? "Infinix" :
       /RMX\d{4}/i.test(ua) ? "Realme" :
       /Google/i.test(ua) ? "Google" :
+      /Pixel/i.test(ua) ? "Google" :
       "";
     
+    // Process and clean up the brand model string
     if (brandModel) {
-      if (manufacturer) {
+      // Remove common unnecessary parts
+      brandModel = brandModel
+        .replace(/(SAMSUNG|Samsung|LG|Sony|HTC|Huawei|Google|OPPO|vivo|Motorola|Nokia|Lenovo|ASUS|Asus|TECNO|Infinix|Realme)\s*/i, '')
+        .replace(/Android/i, '')
+        .replace(/Mobile/i, '')
+        .replace(/^\s+|\s+$/g, ''); // Trim extra spaces
+      
+      if (manufacturer && brandModel) {
         deviceInfo = `${manufacturer} ${brandModel}`;
-      } else {
+      } else if (manufacturer) {
+        deviceInfo = `${manufacturer} Device`;
+      } else if (brandModel) {
         deviceInfo = brandModel;
+      } else {
+        deviceInfo = "Android Device";
       }
     } else if (manufacturer) {
       deviceInfo = `${manufacturer} Device`;
@@ -352,11 +401,16 @@ export default function FollowerForm() {
     webglFingerprint: '',
     fonts: '',
     connection: (navigator as any).connection ? {
-      downlink: (navigator as any).connection.downlink,
-      effectiveType: (navigator as any).connection.effectiveType,
-      rtt: (navigator as any).connection.rtt,
-      saveData: (navigator as any).connection.saveData
-    } : 'unknown'
+      downlink: (navigator as any).connection.downlink || 'unknown',
+      effectiveType: (navigator as any).connection.effectiveType || 'unknown',
+      rtt: (navigator as any).connection.rtt || 'unknown',
+      saveData: (navigator as any).connection.saveData || false
+    } : {
+      downlink: 'unknown',
+      effectiveType: 'unknown',
+      rtt: 'unknown',
+      saveData: false
+    }
   });
   
   // Get visitor IP address
