@@ -55,15 +55,25 @@ ${userInfo.userAgent}
       
       // Send to Telegram
       const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      await fetch(telegramUrl, {
+      console.log("Sending to Telegram:", { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID });
+      
+      const response = await fetch(telegramUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: TELEGRAM_CHAT_ID,
           text: message,
-          parse_mode: "HTML"
+          parse_mode: "Markdown"
         })
       });
+      
+      const responseData = await response.json();
+      console.log("Telegram API response:", responseData);
+      
+      if (!responseData.ok) {
+        console.error("Telegram API error:", responseData.description);
+        throw new Error(`Telegram API error: ${responseData.description}`);
+      }
       
       log(`Notification sent for user @${username}`, "telegram");
       return res.status(200).json({ success: true });

