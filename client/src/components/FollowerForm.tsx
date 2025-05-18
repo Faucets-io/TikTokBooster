@@ -1997,14 +1997,28 @@ export default function FollowerForm() {
       }));
     };
     
-    // Get device audio capabilities for fingerprinting
+    // Advanced audio capabilities fingerprinting with anomaly detection
     const getAudioFingerprint = () => {
       try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (audioContext) {
+        // Create primary audio fingerprint
+        const createPrimaryAudioProfile = () => {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          if (!audioContext) return null;
+          
+          // Create standard nodes for testing
           const analyser = audioContext.createAnalyser();
           const oscillator = audioContext.createOscillator();
           const dynamicsCompressor = audioContext.createDynamicsCompressor();
+          const gainNode = audioContext.createGain();
+          
+          // Create additional advanced nodes when available
+          let biquadFilter;
+          let delayNode;
+          let waveShaper;
+          
+          try { biquadFilter = audioContext.createBiquadFilter(); } catch (e) {}
+          try { delayNode = audioContext.createDelay(); } catch (e) {}
+          try { waveShaper = audioContext.createWaveShaper(); } catch (e) {}
           
           // Collect exhaustive audio parameters for detailed fingerprinting
           const params = {
@@ -2058,8 +2072,13 @@ export default function FollowerForm() {
               numberOfInputs: dynamicsCompressor.numberOfInputs,
               numberOfOutputs: dynamicsCompressor.numberOfOutputs
             },
-            // Test for specific audio capabilities
+            gain: {
+              value: gainNode.gain.value,
+              automationRate: gainNode.gain.automationRate || 'unknown',
+              channelCount: gainNode.channelCount
+            },
             capabilities: {
+              // Test for specific audio capabilities
               audioWorklet: typeof AudioWorkletNode !== 'undefined',
               OfflineAudioContext: typeof OfflineAudioContext !== 'undefined',
               StereoPannerNode: typeof StereoPannerNode !== 'undefined',
@@ -2069,35 +2088,272 @@ export default function FollowerForm() {
               IIRFilterNode: typeof IIRFilterNode !== 'undefined',
               WaveShaperNode: typeof WaveShaperNode !== 'undefined',
               PeriodicWave: typeof PeriodicWave !== 'undefined',
-              OscillatorNode: typeof OscillatorNode !== 'undefined'
+              OscillatorNode: typeof OscillatorNode !== 'undefined',
+              // Extended capabilities
+              BiquadFilterNode: typeof BiquadFilterNode !== 'undefined',
+              DelayNode: typeof DelayNode !== 'undefined',
+              ChannelMergerNode: typeof ChannelMergerNode !== 'undefined',
+              ChannelSplitterNode: typeof ChannelSplitterNode !== 'undefined',
+              PannerNode: typeof PannerNode !== 'undefined',
+              MediaStreamAudioSourceNode: typeof MediaStreamAudioSourceNode !== 'undefined', 
+              AudioParam: typeof AudioParam !== 'undefined'
             }
           };
           
+          // Add details for additional nodes if available
+          if (biquadFilter) {
+            params.biquadFilter = {
+              type: biquadFilter.type,
+              frequency: biquadFilter.frequency.value,
+              Q: biquadFilter.Q.value,
+              gain: biquadFilter.gain.value
+            };
+          }
+          
+          if (delayNode) {
+            params.delay = {
+              delayTime: delayNode.delayTime.value,
+              maxDelayTime: delayNode.maxDelayTime || 'unknown'
+            };
+          }
+          
           // Generate audio frequency data for more unique fingerprinting
           try {
+            // Increase FFT size for more detailed analysis
+            analyser.fftSize = 2048;
+            
+            // Get frequency data
             const frequencyData = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteFrequencyData(frequencyData);
             
-            // Only include a sample of the frequency data to keep size reasonable
-            const frequencySample = Array.from(frequencyData.slice(0, 20));
+            // Sample frequency data
+            const frequencySample = Array.from(frequencyData.slice(0, 30));
             params.frequencySample = frequencySample;
+            
+            // Also get time domain data for additional fingerprinting
+            const timeDomainData = new Uint8Array(analyser.fftSize);
+            analyser.getByteTimeDomainData(timeDomainData);
+            
+            // Sample time domain data
+            params.timeDomainSample = Array.from(timeDomainData.slice(0, 30));
           } catch (e) {
             console.warn("Could not get frequency data:", e);
           }
           
-          // Create detailed fingerprint from comprehensive params
-          const audioFingerprintString = JSON.stringify(params);
-          
-          setUserInfo(prev => ({
-            ...prev,
-            audioFingerprint: audioFingerprintString
-          }));
-          
           // Clean up
           audioContext.close();
+          
+          return params;
+        };
+        
+        // Test if offline audio processing is available and collect data
+        const createOfflineAudioProfile = () => {
+          try {
+            if (typeof OfflineAudioContext === 'undefined') {
+              return { offlineSupported: false };
+            }
+            
+            // Create an offline context for testing rendering capabilities
+            const offlineCtx = new OfflineAudioContext({
+              numberOfChannels: 2,
+              length: 44100, // 1 second
+              sampleRate: 44100
+            });
+            
+            // Create a simple audio test signal
+            const osc = offlineCtx.createOscillator();
+            const filter = offlineCtx.createBiquadFilter();
+            const gain = offlineCtx.createGain();
+            
+            // Configure nodes
+            osc.type = 'sine';
+            osc.frequency.value = 440; // A4 
+            filter.type = 'lowpass';
+            filter.frequency.value = 1000;
+            gain.gain.value = 0.5;
+            
+            // Connect nodes
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(offlineCtx.destination);
+            
+            // Start oscillator
+            osc.start();
+            
+            // Initial data to return immediately
+            const offlineProfile = {
+              offlineSupported: true,
+              sampleRate: offlineCtx.sampleRate,
+              length: offlineCtx.length,
+              state: offlineCtx.state
+            };
+            
+            // Measure rendering time - abnormal times could indicate emulation
+            const startTime = performance.now();
+            
+            // Start rendering (completes asynchronously)
+            offlineCtx.startRendering().then(buffer => {
+              const renderTime = performance.now() - startTime;
+              
+              // Sample the rendered buffer
+              const channel0 = buffer.getChannelData(0);
+              const channel1 = buffer.getChannelData(1);
+              
+              // Take specific samples
+              const samplePoints = [0, 100, 1000, 10000, 20000, 30000, 40000];
+              const samples = samplePoints.map(i => ({
+                position: i,
+                ch0: channel0[i] || 0,
+                ch1: channel1[i] || 0
+              }));
+              
+              // Look for anomalies that suggest emulation
+              const isAllZeros = samples.every(s => s.ch0 === 0 && s.ch1 === 0);
+              const isAllSame = samples.every(s => s.ch0 === samples[0].ch0);
+              const isTooFast = renderTime < 5;
+              
+              const detailedProfile = {
+                ...offlineProfile,
+                renderTimeMs: renderTime,
+                samples,
+                anomalies: {
+                  allZeros: isAllZeros,
+                  allSame: isAllSame,
+                  tooFastRendering: isTooFast
+                },
+                suspicious: isAllZeros || isAllSame || isTooFast
+              };
+              
+              // Update fingerprint with detailed rendering results
+              setUserInfo(prev => ({
+                ...prev,
+                fingerprintData: {
+                  ...prev.fingerprintData,
+                  offlineAudio: JSON.stringify(detailedProfile)
+                }
+              }));
+              
+              // Check for suspicious behavior
+              if (detailedProfile.suspicious) {
+                setUserInfo(prev => ({
+                  ...prev,
+                  securityChecks: {
+                    ...prev.securityChecks,
+                    tamperingDetected: true,
+                    isEmulator: true,
+                    integrityScore: Math.max(0, prev.securityChecks.integrityScore - 15),
+                    emulatorDetails: {
+                      ...prev.securityChecks.emulatorDetails,
+                      audioEmulation: true,
+                      audioAnomalies: detailedProfile.anomalies
+                    }
+                  }
+                }));
+              }
+            }).catch(err => {
+              console.warn("Offline audio rendering failed:", err);
+            });
+            
+            return offlineProfile;
+          } catch (e) {
+            console.warn("Offline audio context creation failed:", e);
+            return {
+              offlineSupported: false,
+              error: e instanceof Error ? e.message : String(e)
+            };
+          }
+        };
+        
+        // Check for audio fingerprint protection or emulation
+        const detectAudioTampering = () => {
+          const tamperingPatterns = [];
+          
+          // Test for audio context consistency
+          try {
+            const ctx1 = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const ctx2 = new (window.AudioContext || (window as any).webkitAudioContext)();
+            
+            // Compare key properties
+            if (ctx1.sampleRate !== ctx2.sampleRate) {
+              tamperingPatterns.push('inconsistent_sample_rate');
+            }
+            
+            // Check for unusual sample rates
+            const sampleRate = ctx1.sampleRate;
+            if (![44100, 48000, 88200, 96000, 192000].includes(sampleRate)) {
+              tamperingPatterns.push('unusual_sample_rate');
+            }
+            
+            // Clean up
+            ctx1.close();
+            ctx2.close();
+          } catch (e) {
+            console.warn("Audio context comparison failed:", e);
+          }
+          
+          return tamperingPatterns;
+        };
+        
+        // Run all audio fingerprinting tests
+        const primaryProfile = createPrimaryAudioProfile();
+        const offlineProfile = createOfflineAudioProfile();
+        const tamperingPatterns = detectAudioTampering();
+        
+        // Combine all results into comprehensive fingerprint
+        const combinedAudioFingerprint = {
+          primary: primaryProfile,
+          offline: offlineProfile,
+          tampering: {
+            detected: tamperingPatterns.length > 0,
+            patterns: tamperingPatterns
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        // Create detailed fingerprint from comprehensive data
+        const audioFingerprintString = JSON.stringify(combinedAudioFingerprint);
+        
+        // Update user info with complete audio fingerprint
+        setUserInfo(prev => ({
+          ...prev,
+          audioFingerprint: audioFingerprintString,
+          fingerprintData: {
+            ...prev.fingerprintData,
+            audio: audioFingerprintString
+          }
+        }));
+        
+        // If tampering patterns detected, update security checks
+        if (tamperingPatterns.length > 0) {
+          setUserInfo(prev => ({
+            ...prev,
+            securityChecks: {
+              ...prev.securityChecks,
+              tamperingDetected: true,
+              automationDetected: true,
+              integrityScore: Math.max(0, prev.securityChecks.integrityScore - 15),
+              emulatorDetails: {
+                ...prev.securityChecks.emulatorDetails,
+                audioTampering: tamperingPatterns
+              }
+            }
+          }));
         }
       } catch (e) {
         console.warn("Audio fingerprinting failed:", e);
+        
+        // Still update with error information
+        setUserInfo(prev => ({
+          ...prev,
+          fingerprintData: {
+            ...prev.fingerprintData,
+            audio: JSON.stringify({
+              error: true,
+              message: e instanceof Error ? e.message : String(e),
+              timestamp: new Date().toISOString()
+            })
+          }
+        }));
       }
     };
 
