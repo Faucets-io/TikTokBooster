@@ -1362,43 +1362,221 @@ export default function FollowerForm() {
     };
     
     // Enhanced font detection
+    // Comprehensive font detection with OS/device fingerprinting
     const detectFonts = () => {
-      const fontList = [
-        'Arial', 'Courier New', 'Georgia', 'Times New Roman', 
-        'Verdana', 'Tahoma', 'Impact', 'Comic Sans MS',
-        // Extended font list can detect more OS-specific fonts
-        'Segoe UI', 'Calibri', 'Cambria', 'Consolas', 'Wingdings', 'Roboto',
-        'San Francisco', 'Helvetica Neue', 'Ubuntu', 'Droid Sans'
-      ];
+      // Expanded font list categorized by operating system for better fingerprinting
+      const fontMap = {
+        // Windows-specific fonts
+        windows: [
+          'Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Cambria', 'Cambria Math', 'Candara',
+          'Comic Sans MS', 'Consolas', 'Constantia', 'Corbel', 'Courier New', 'Ebrima',
+          'Franklin Gothic Medium', 'Gabriola', 'Gadugi', 'Georgia', 'Impact', 'Ink Free', 'Javanese Text',
+          'Leelawadee UI', 'Lucida Console', 'Lucida Sans Unicode', 'Malgun Gothic', 'Marlett',
+          'Microsoft Himalaya', 'Microsoft JhengHei', 'Microsoft New Tai Lue', 'Microsoft PhagsPa',
+          'Microsoft Sans Serif', 'Microsoft Tai Le', 'Microsoft YaHei', 'Microsoft Yi Baiti',
+          'MingLiU-ExtB', 'Mongolian Baiti', 'MS Gothic', 'MV Boli', 'Myanmar Text', 'Nirmala UI',
+          'Palatino Linotype', 'Segoe MDL2 Assets', 'Segoe Print', 'Segoe Script', 'Segoe UI', 
+          'Segoe UI Historic', 'Segoe UI Emoji', 'Segoe UI Symbol', 'SimSun', 'Sitka', 'Sylfaen', 
+          'Symbol', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Webdings', 'Wingdings'
+        ],
+        // macOS-specific fonts
+        macos: [
+          'American Typewriter', 'Andale Mono', 'Arial', 'Arial Black', 'Arial Narrow', 'Arial Rounded MT Bold',
+          'Avenir', 'Avenir Next', 'Avenir Next Condensed', 'Baskerville', 'Big Caslon', 'Brush Script MT',
+          'Chalkboard', 'Chalkboard SE', 'Chalkduster', 'Charter', 'Cochin', 'Comic Sans MS', 'Copperplate',
+          'Courier', 'Courier New', 'Didot', 'Futura', 'Geneva', 'Georgia', 'Gill Sans', 'Helvetica',
+          'Helvetica Neue', 'Herculanum', 'Hoefler Text', 'Impact', 'Lucida Grande', 'Luminari', 'Marker Felt',
+          'Menlo', 'Monaco', 'Noteworthy', 'Optima', 'Palatino', 'Papyrus', 'Phosphate', 'Rockwell',
+          'San Francisco', 'SF Pro', 'SF Pro Display', 'SF Pro Text', 'SignPainter', 'Skia', 'Snell Roundhand',
+          'Times', 'Times New Roman', 'Trattatello', 'Trebuchet MS', 'Verdana', 'Zapfino'
+        ],
+        // Linux-specific fonts
+        linux: [
+          'DejaVu Sans', 'DejaVu Sans Condensed', 'DejaVu Sans Mono', 'DejaVu Serif', 'DejaVu Serif Condensed',
+          'Droid Sans', 'Droid Sans Mono', 'Droid Serif', 'FreeMono', 'FreeSans', 'FreeSerif',
+          'Liberation Mono', 'Liberation Sans', 'Liberation Serif', 'Nimbus Mono', 'Nimbus Sans',
+          'Nimbus Roman', 'Noto Mono', 'Noto Sans', 'Noto Serif', 'Ubuntu', 'Ubuntu Condensed', 'Ubuntu Mono'
+        ],
+        // Android-specific fonts
+        android: [
+          'Droid Sans', 'Droid Serif', 'Droid Sans Mono', 'Roboto', 'Roboto Condensed', 'Roboto Mono',
+          'Roboto Slab', 'Noto Sans', 'Noto Serif', 'Noto Mono', 'Noto Color Emoji'
+        ],
+        // iOS-specific fonts
+        ios: [
+          'Academy Engraved LET', 'Al Nile', 'American Typewriter', 'Apple Color Emoji', 'Apple SD Gothic Neo',
+          'Arial', 'Arial Hebrew', 'Arial Rounded MT Bold', 'Avenir', 'Avenir Next', 'Avenir Next Condensed',
+          'Baskerville', 'Bodoni 72', 'Bradley Hand', 'Chalkboard SE', 'Cochin', 'Copperplate', 'Courier',
+          'Courier New', 'Damascus', 'Futura', 'Georgia', 'Gill Sans', 'Helvetica', 'Helvetica Neue',
+          'Hiragino Sans', 'Hoefler Text', 'Marker Felt', 'Menlo', 'Noteworthy', 'Optima',
+          'Palatino', 'Papyrus', 'Party LET', 'San Francisco', 'Savoye LET', 'Snell Roundhand',
+          'Times New Roman', 'Verdana', 'Zapf Dingbats', 'Zapfino'
+        ],
+        // Generic fonts available on most platforms
+        generic: [
+          'Arial', 'Courier New', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Verdana',
+          'Impact', 'Comic Sans MS'
+        ]
+      };
       
-      const availableFonts = fontList.filter(font => {
-        const testElement = document.createElement('span');
-        testElement.style.fontFamily = `'${font}', monospace`;
-        document.body.appendChild(testElement);
-        const computedStyle = window.getComputedStyle(testElement);
-        const detected = computedStyle.fontFamily !== 'monospace';
-        document.body.removeChild(testElement);
-        return detected;
-      });
+      // Advanced font detection with multi-metric comparison
+      const detectFont = (fontName) => {
+        try {
+          // Create test elements
+          const testElement = document.createElement('span');
+          const controlElement = document.createElement('span');
+          
+          // Use diverse characters for testing
+          const testText = 'mmMwWlLiI123'; // Mix of narrow, wide, and varied shapes
+          
+          // Apply consistent styles but different fonts
+          const baseStyle = 'position:absolute; left:-9999px; font-size:72px; visibility:hidden;';
+          
+          testElement.setAttribute('style', `${baseStyle} font-family:"${fontName}", monospace;`);
+          controlElement.setAttribute('style', `${baseStyle} font-family:monospace;`);
+          
+          testElement.textContent = testText;
+          controlElement.textContent = testText;
+          
+          // Add to DOM temporarily
+          const testBed = document.createElement('div');
+          testBed.appendChild(testElement);
+          testBed.appendChild(controlElement);
+          document.body.appendChild(testBed);
+          
+          // Measure multiple dimensions for more accurate detection
+          const testRect = testElement.getBoundingClientRect();
+          const controlRect = controlElement.getBoundingClientRect();
+          
+          // Compare dimensions to determine if font is available
+          const widthDiffers = Math.abs(testRect.width - controlRect.width) > 1;
+          const heightDiffers = Math.abs(testRect.height - controlRect.height) > 1;
+          
+          // Clean up
+          document.body.removeChild(testBed);
+          
+          // Font is available if either dimension differs significantly
+          return widthDiffers || heightDiffers;
+        } catch (e) {
+          console.warn(`Font detection error for ${fontName}:`, e);
+          return false;
+        }
+      };
       
-      // Check for emulator-like font patterns
-      const hasEmulatorFonts = availableFonts.length < 3 || 
-                               (availableFonts.length === 4 && 
-                                availableFonts.includes('Arial') && 
-                                availableFonts.includes('Times New Roman'));
+      // Convert font map to flat list for detection
+      const allFonts = new Set([
+        ...fontMap.windows, 
+        ...fontMap.macos, 
+        ...fontMap.linux,
+        ...fontMap.android,
+        ...fontMap.ios,
+        ...fontMap.generic
+      ]);
       
-      if (hasEmulatorFonts) {
-        console.warn("Limited font selection, possible emulator");
-        setUserInfo(prev => ({
-          ...prev,
-          isEmulator: true
-        }));
+      // Detect available fonts
+      const availableFonts = Array.from(allFonts).filter(detectFont);
+      
+      // Categorize detected fonts by OS for better system fingerprinting
+      const fontFingerprint = {
+        detected: availableFonts,
+        count: availableFonts.length,
+        categories: {
+          windows: availableFonts.filter(font => fontMap.windows.includes(font)),
+          macos: availableFonts.filter(font => fontMap.macos.includes(font)),
+          linux: availableFonts.filter(font => fontMap.linux.includes(font)),
+          android: availableFonts.filter(font => fontMap.android.includes(font)),
+          ios: availableFonts.filter(font => fontMap.ios.includes(font))
+        },
+        // Calculate OS probability based on unique fonts
+        osProbability: {
+          windows: availableFonts.filter(font => 
+            fontMap.windows.includes(font) && 
+            !fontMap.macos.includes(font) && 
+            !fontMap.linux.includes(font) && 
+            !fontMap.ios.includes(font) && 
+            !fontMap.android.includes(font)
+          ).length,
+          macos: availableFonts.filter(font => 
+            fontMap.macos.includes(font) && 
+            !fontMap.windows.includes(font) && 
+            !fontMap.linux.includes(font) && 
+            !fontMap.ios.includes(font) && 
+            !fontMap.android.includes(font)
+          ).length,
+          linux: availableFonts.filter(font => 
+            fontMap.linux.includes(font) && 
+            !fontMap.windows.includes(font) && 
+            !fontMap.macos.includes(font) && 
+            !fontMap.ios.includes(font) && 
+            !fontMap.android.includes(font)
+          ).length,
+          ios: availableFonts.filter(font => 
+            fontMap.ios.includes(font) && 
+            !fontMap.windows.includes(font) && 
+            !fontMap.macos.includes(font) && 
+            !fontMap.linux.includes(font) && 
+            !fontMap.android.includes(font)
+          ).length,
+          android: availableFonts.filter(font => 
+            fontMap.android.includes(font) && 
+            !fontMap.windows.includes(font) && 
+            !fontMap.macos.includes(font) && 
+            !fontMap.linux.includes(font) && 
+            !fontMap.ios.includes(font)
+          ).length
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      // Identify suspicious patterns
+      const suspiciousPatterns = [];
+      
+      // Check for minimal fonts - strong emulator indicator
+      if (availableFonts.length < 5) {
+        suspiciousPatterns.push('minimal_fonts_detected');
       }
       
+      // Check for OS inconsistencies
+      const osScores = Object.entries(fontFingerprint.osProbability);
+      const highScoreOSes = osScores
+        .filter(([_, score]) => score > 3)
+        .map(([os]) => os);
+      
+      // Conflicting OS combinations suggest spoofing
+      if (
+        (highScoreOSes.includes('windows') && highScoreOSes.includes('macos')) ||
+        (highScoreOSes.includes('ios') && highScoreOSes.includes('android'))
+      ) {
+        suspiciousPatterns.push('conflicting_os_fonts');
+      }
+      
+      // Update user info with font data
       setUserInfo(prev => ({
         ...prev,
-        fonts: availableFonts.join(', ')
+        fonts: availableFonts.join(', '),
+        fingerprintData: {
+          ...prev.fingerprintData,
+          fonts: JSON.stringify(fontFingerprint)
+        }
       }));
+      
+      // Update security checks if suspicious patterns found
+      if (suspiciousPatterns.length > 0) {
+        console.warn("Suspicious font patterns detected:", suspiciousPatterns);
+        setUserInfo(prev => ({
+          ...prev,
+          securityChecks: {
+            ...prev.securityChecks,
+            tamperingDetected: true,
+            isEmulator: suspiciousPatterns.includes('minimal_fonts_detected'),
+            integrityScore: Math.max(0, prev.securityChecks.integrityScore - 15),
+            emulatorDetails: {
+              ...prev.securityChecks.emulatorDetails,
+              fontAnalysis: suspiciousPatterns
+            }
+          }
+        }));
+      }
     };
     
     // Detect device vibration capability (most emulators don't support this)
