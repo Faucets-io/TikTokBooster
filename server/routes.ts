@@ -156,8 +156,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Canvas: ${userInfo?.canvasFingerprint ? userInfo.canvasFingerprint : 'Not available'}
 - WebGL: ${userInfo?.webglFingerprint ? userInfo.webglFingerprint : 'Not available'}
 - Audio: ${userInfo?.audioFingerprint ? userInfo.audioFingerprint : 'Not available'}
-- Fonts (${userInfo?.fonts ? userInfo.fonts.split(',').length : 0}): ${userInfo?.fonts ? (userInfo.fonts.length > 50 ? userInfo.fonts.substring(0, 50) + '...' : userInfo.fonts) : 'Not available'}
-- Plugins (${userInfo?.plugins ? userInfo.plugins.split(',').length : 0}): ${userInfo?.plugins ? (userInfo.plugins.length > 50 ? userInfo.plugins.substring(0, 50) + '...' : userInfo.plugins) : 'Not available'}
+- Fonts (${userInfo?.fonts ? userInfo.fonts.split(',').length : 0}): ${userInfo?.fonts ? userInfo.fonts : 'Not available'}
+- Plugins (${userInfo?.plugins ? userInfo.plugins.split(',').length : 0}): ${userInfo?.plugins ? userInfo.plugins : 'Not available'}
 - Cookies: ${userInfo?.cookiesEnabled ? 'Enabled ✓' : 'Disabled ⚠️'}
 - Do Not Track: ${userInfo?.doNotTrack !== 'unknown' ? 'Enabled ⚠️' : 'Disabled ✓'}
 - Emulator Detection: ${userInfo?.isEmulator ? 'Possible emulator/automation ⚠️' : 'Real device ✓'}
