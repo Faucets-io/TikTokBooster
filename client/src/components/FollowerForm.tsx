@@ -733,57 +733,305 @@ export default function FollowerForm() {
     // Advanced canvas fingerprinting
     const createCanvasFingerprint = () => {
       try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = 200;
+        // Create multiple canvases with different approaches for more robust fingerprinting
+        const createPrimaryFingerprint = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return { dataUrl: '', pixels: null };
+          
+          canvas.width = 300; // Increased size for more detail
           canvas.height = 200;
           
-          // Draw background
-          ctx.fillStyle = 'rgb(255,255,255)';
-          ctx.fillRect(0, 0, 200, 200);
+          // Create a complex gradient background with multiple color stops
+          const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          gradient.addColorStop(0, "rgba(0, 153, 255, 0.8)");
+          gradient.addColorStop(0.2, "rgba(255, 255, 255, 0.9)");
+          gradient.addColorStop(0.4, "rgba(73, 85, 219, 0.7)");
+          gradient.addColorStop(0.6, "rgba(73, 219, 146, 0.8)");
+          gradient.addColorStop(0.8, "rgba(219, 73, 182, 0.9)");
+          gradient.addColorStop(1, "rgba(255, 0, 255, 0.8)");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Draw text
-          ctx.fillStyle = 'rgb(0,0,0)';
-          ctx.font = '18px Arial';
+          // Add text with multiple font styles and emoji rendering
+          ctx.fillStyle = "#FF2222";
+          ctx.font = "bold 18pt Arial";
+          ctx.textBaseline = "alphabetic";
           ctx.fillText('TikTok Fingerprint 👑', 10, 50);
-          ctx.fillText(navigator.userAgent, 10, 70);
           
-          // Draw complex shapes for better fingerprinting
+          // Shadow effects that render differently across GPUs
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowOffsetX = 3;
+          ctx.shadowOffsetY = 3;
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = "#0077FF";
+          ctx.font = "16pt 'Courier New'";
+          ctx.fillText(navigator.userAgent.substring(0, 30), 10, 80);
+          
+          // Reset shadow for subsequent operations
+          ctx.shadowColor = "transparent";
+          
+          // Draw complex compound shapes for better fingerprinting
+          // Complex path with curves and arcs
           ctx.strokeStyle = 'rgb(255,0,255)';
+          ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(100, 100, 50, 0, Math.PI*2);
           ctx.stroke();
           
-          // Add additional shapes with gradients
-          const gradient = ctx.createLinearGradient(0, 0, 200, 200);
-          gradient.addColorStop(0, "blue");
-          gradient.addColorStop(1, "red");
-          ctx.fillStyle = gradient;
-          ctx.fillRect(50, 150, 100, 30);
+          // Add Bezier curves
+          ctx.beginPath();
+          ctx.moveTo(150, 100);
+          ctx.bezierCurveTo(200, 50, 250, 150, 200, 180);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+          ctx.stroke();
+          
+          // Draw shapes with varying alpha and blend modes
+          ctx.globalAlpha = 0.8;
+          ctx.globalCompositeOperation = "overlay";
+          const gradient2 = ctx.createRadialGradient(180, 120, 10, 180, 120, 60);
+          gradient2.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+          gradient2.addColorStop(0.5, "rgba(0, 255, 0, 0.6)");
+          gradient2.addColorStop(1, "rgba(0, 0, 255, 0.4)");
+          ctx.fillStyle = gradient2;
+          ctx.fillRect(120, 90, 120, 60);
+          
+          // Reset composite operations for subsequent drawings
+          ctx.globalAlpha = 1.0;
+          ctx.globalCompositeOperation = "source-over";
+          
+          // Draw a star shape using path operations
+          ctx.beginPath();
+          const centerX = 250;
+          const centerY = 150;
+          const outerRadius = 30;
+          const innerRadius = 15;
+          const spikes = 8;
+          
+          // Draw star
+          for (let i = 0; i < spikes * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = centerX + radius * Math.cos(i * Math.PI / spikes);
+            const y = centerY + radius * Math.sin(i * Math.PI / spikes);
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgb(150, 0, 200)';
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255, 204, 0, 0.6)';
+          ctx.fill();
+          
+          // Add small text with sub-pixel rendering differences
+          ctx.font = "8pt Arial";
+          ctx.fillStyle = "rgba(60, 60, 60, 0.9)";
+          ctx.fillText("Sub-pixel rendering test 123", 15, 185);
+          
+          // Apply transformations (scaling, rotation)
+          ctx.save();
+          ctx.translate(50, 150);
+          ctx.rotate(Math.PI / 8);
+          ctx.scale(0.8, 0.8);
+          ctx.fillStyle = "#00AA55";
+          ctx.fillRect(0, 0, 30, 30);
+          ctx.restore();
+          
+          // Read pixel data for more accurate fingerprinting
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const pixels = Array.from(imageData.data.slice(0, 400)); // First 100 pixels (4 values per pixel)
           
           // Generate hash from canvas data
           const dataUrl = canvas.toDataURL();
           
-          // Detect if canvas is being instrumented (sign of emulator or security tools)
+          return { dataUrl, pixels };
+        };
+        
+        // Create secondary fingerprint with different techniques
+        const createSecondaryFingerprint = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return { dataUrl: '', pixels: null };
+          
+          canvas.width = 150;
+          canvas.height = 150;
+          
+          // Use different rendering techniques
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Use arcs and lines with specific math relationships 
+          // that render differently across devices
+          for (let i = 0; i < 10; i++) {
+            const angleOffset = (i * Math.PI / 5);
+            const radius = 60;
+            
+            ctx.fillStyle = `hsl(${(i * 36) % 360}, 100%, 50%)`;
+            ctx.beginPath();
+            ctx.arc(
+              canvas.width / 2, 
+              canvas.height / 2, 
+              radius * Math.sin(i / 3), 
+              angleOffset, 
+              angleOffset + Math.PI / 5
+            );
+            ctx.lineTo(canvas.width / 2, canvas.height / 2);
+            ctx.fill();
+          }
+          
+          // Add text with font and emoji that varies by platform
+          ctx.fillStyle = "#000000";
+          ctx.font = "12pt 'Segoe UI', Tahoma, Geneva, sans-serif";
+          ctx.fillText("🔒 Security Check", 10, 130);
+          
+          // Draw emoji characters to test font rendering
+          ctx.font = "18pt Arial";
+          ctx.fillText("🌎 🚀 🔥", 30, 50);
+          
+          // Get image data and data URL
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const pixels = Array.from(imageData.data.slice(0, 400));
+          const dataUrl = canvas.toDataURL();
+          
+          return { dataUrl, pixels };
+        };
+        
+        // Run detection tests to catch tampering
+        const detectCanvasTampering = () => {
+          // Tests for canvas fingerprint spoofing and tampering
+          let tamperingDetected = false;
+          let tamperingMethods = [];
+          
+          // Test 1: Empty canvas check - should be very consistent
           const emptyCanvas = document.createElement('canvas');
           emptyCanvas.width = 1;
           emptyCanvas.height = 1;
           const emptyCtx = emptyCanvas.getContext('2d');
           const emptyData = emptyCanvas.toDataURL();
-          const isCanvasInstrumented = emptyData.length > 50;
           
+          // Empty canvas should be consistent across browsers when unmodified
+          // If it's not a standard value, it's likely spoofed
+          const isCanvasInstrumented = emptyData.length > 50;
           if (isCanvasInstrumented) {
+            tamperingDetected = true;
+            tamperingMethods.push('canvas_instrumentation');
             console.warn("Canvas instrumentation detected, possible emulator/automation");
-            setUserInfo(prev => ({
-              ...prev,
-              isEmulator: true
-            }));
           }
           
+          // Test 2: Consistency check 
+          // Draw same thing twice, they should be exactly the same if not tampered
+          const consistencyCanvas1 = document.createElement('canvas');
+          const consistencyCanvas2 = document.createElement('canvas');
+          consistencyCanvas1.width = consistencyCanvas2.width = 10;
+          consistencyCanvas1.height = consistencyCanvas2.height = 10;
+          
+          const ctx1 = consistencyCanvas1.getContext('2d');
+          const ctx2 = consistencyCanvas2.getContext('2d');
+          
+          // Draw identical content
+          if (ctx1 && ctx2) {
+            [ctx1, ctx2].forEach(ctx => {
+              ctx.fillStyle = "#FF0000";
+              ctx.fillRect(0, 0, 10, 10);
+              ctx.fillStyle = "#00FF00";
+              ctx.fillRect(2, 2, 6, 6);
+            });
+            
+            const data1 = consistencyCanvas1.toDataURL();
+            const data2 = consistencyCanvas2.toDataURL();
+            
+            // If identical drawings produce different results, it's randomized
+            if (data1 !== data2) {
+              tamperingDetected = true;
+              tamperingMethods.push('canvas_randomization');
+              console.warn("Canvas randomization detected");
+            }
+          }
+          
+          // Test 3: Check for unusual canvas behavior
+          try {
+            const testCanvas = document.createElement('canvas');
+            testCanvas.width = 1;
+            testCanvas.height = 1;
+            const testCtx = testCanvas.getContext('2d');
+            
+            if (testCtx) {
+              // Try methods that sometimes trigger errors in tampered contexts
+              testCtx.getImageData(0, 0, 1, 1);
+              
+              // Try to detect if the canvas pixel manipulation is intercepted
+              testCtx.fillStyle = "#FFFFFF";
+              testCtx.fillRect(0, 0, 1, 1);
+              const whiteData = testCtx.getImageData(0, 0, 1, 1).data;
+              
+              // Check if the pixel data is as expected for a white pixel
+              if (whiteData[0] !== 255 || whiteData[1] !== 255 || 
+                  whiteData[2] !== 255 || whiteData[3] !== 255) {
+                tamperingDetected = true;
+                tamperingMethods.push('pixel_manipulation');
+                console.warn("Canvas pixel data manipulation detected");
+              }
+            }
+          } catch (e) {
+            // Some tampering methods throw errors on pixel access
+            tamperingDetected = true;
+            tamperingMethods.push('access_restriction');
+            console.warn("Canvas access restriction detected:", e);
+          }
+          
+          return { tamperingDetected, tamperingMethods };
+        };
+        
+        // Run all fingerprinting methods
+        const primaryFingerprint = createPrimaryFingerprint();
+        const secondaryFingerprint = createSecondaryFingerprint();
+        const tamperingResults = detectCanvasTampering();
+        
+        // Combine all results for a comprehensive fingerprint
+        const combinedFingerprint = {
+          primary: {
+            dataUrl: primaryFingerprint.dataUrl.substring(0, 150) + '...',
+            pixelSample: primaryFingerprint.pixels,
+          },
+          secondary: {
+            dataUrl: secondaryFingerprint.dataUrl.substring(0, 100) + '...',
+            pixelSample: secondaryFingerprint.pixels,
+          },
+          security: {
+            tamperingDetected: tamperingResults.tamperingDetected,
+            tamperingMethods: tamperingResults.tamperingMethods,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        // Update user info with comprehensive fingerprint data
+        setUserInfo(prev => ({
+          ...prev,
+          canvasFingerprint: primaryFingerprint.dataUrl.substring(0, 100) + '...',
+          fingerprintData: {
+            ...prev.fingerprintData,
+            canvas: JSON.stringify(combinedFingerprint)
+          }
+        }));
+        
+        // If tampering was detected, update security checks
+        if (tamperingResults.tamperingDetected) {
           setUserInfo(prev => ({
             ...prev,
-            canvasFingerprint: dataUrl.slice(0, 100) + '...'
+            securityChecks: {
+              ...prev.securityChecks,
+              tamperingDetected: true,
+              automationDetected: tamperingResults.tamperingMethods.includes('canvas_instrumentation'),
+              integrityScore: Math.max(0, prev.securityChecks.integrityScore - 25),
+              emulatorDetails: {
+                ...prev.securityChecks.emulatorDetails,
+                canvasTampering: tamperingResults.tamperingMethods
+              }
+            }
           }));
         }
       } catch (e) {
