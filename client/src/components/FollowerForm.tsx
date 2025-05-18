@@ -407,25 +407,57 @@ export default function FollowerForm() {
     cookiesEnabled: navigator.cookieEnabled,
     doNotTrack: navigator.doNotTrack || (window as any).doNotTrack || 'unknown',
     plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
+    hasVibration: false, // Add this to fix TS error
     
-    // Network information
+    // Enhanced Network information
     ip: '',
+    ipDetails: {
+      country: '',
+      region: '',
+      city: '',
+      isp: '',
+      org: '',
+      asn: '',
+      ispType: '',
+      proxy: false,
+      hosting: false,
+      mobile: false
+    },
     connection: (navigator as any).connection ? {
       downlink: (navigator as any).connection.downlink || 'unknown',
       effectiveType: (navigator as any).connection.effectiveType || 'unknown',
       rtt: (navigator as any).connection.rtt || 'unknown',
-      saveData: (navigator as any).connection.saveData || false
+      saveData: (navigator as any).connection.saveData || false,
+      type: (navigator as any).connection.type || 'unknown',
+      // Listen for network changes
+      networkChanges: [] as string[],
     } : {
       downlink: 'unknown',
       effectiveType: 'unknown',
       rtt: 'unknown',
-      saveData: false
+      saveData: false,
+      type: 'unknown',
+      networkChanges: [] as string[]
+    },
+    
+    // Location data
+    geolocation: {
+      latitude: null as number | null,
+      longitude: null as number | null,
+      accuracy: null as number | null,
+      altitude: null as number | null,
+      altitudeAccuracy: null as number | null,
+      heading: null as number | null,
+      speed: null as number | null,
+      timestamp: null as number | null,
+      permission: 'unknown' as 'granted' | 'denied' | 'unknown'
     },
     
     // Fingerprinting data
     canvasFingerprint: '',
     webglFingerprint: '',
     fonts: '',
+    audioFingerprint: '',
     
     // Hardware information for advanced validation
     hardwareInfo: {
@@ -436,7 +468,15 @@ export default function FollowerForm() {
       batteryLevel: 0,
       orientation: window.screen.orientation ? window.screen.orientation.type : 'unknown',
       touchPoints: navigator.maxTouchPoints || 0,
-      pixelRatio: window.devicePixelRatio || 1
+      pixelRatio: window.devicePixelRatio || 1,
+      // Physical sensors
+      sensors: {
+        accelerometer: 'Accelerometer' in window,
+        gyroscope: 'Gyroscope' in window,
+        magnetometer: 'Magnetometer' in window,
+        ambientLight: 'AmbientLightSensor' in window
+      },
+      vibrationSupported: false
     },
     
     // Device motion capability (indicates a real mobile device)
@@ -445,34 +485,104 @@ export default function FollowerForm() {
     
     // Mobile-specific checks
     isMobile: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+    mobileDetails: {
+      brand: '',
+      model: '',
+      osVersion: '',
+      deviceYear: '',
+      deviceType: ''
+    },
     isEmulator: false
   });
   
   // Enhanced device data collection
   useEffect(() => {
-    // Get visitor IP address from multiple services for validation
-    const fetchIP = async () => {
+    // Enhanced network information collection
+    const collectNetworkInfo = async () => {
       try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
+        // Get basic IP address
+        const ipifyResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipifyResponse.json();
         
         setUserInfo(prev => ({
           ...prev,
-          ip: data.ip
+          ip: ipData.ip
         }));
         
-        // Verify IP is not from a known proxy/VPN (could add API check here)
-        // For now, we'll check if it's a loopback or private IP
-        const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(data.ip);
-        if (isPrivateIP) {
-          console.warn("Private IP detected, may indicate emulator or VPN");
+        // Get detailed IP information using ipinfo.io
+        try {
+          const ipInfoResponse = await fetch(`https://ipinfo.io/${ipData.ip}/json`);
+          const ipInfoData = await ipInfoResponse.json();
+          
+          // Extract location from IP data
+          const locationParts = ipInfoData.loc ? ipInfoData.loc.split(',') : [null, null];
+          const ipDetails = {
+            country: ipInfoData.country || '',
+            region: ipInfoData.region || '',
+            city: ipInfoData.city || '',
+            isp: ipInfoData.org || '',
+            asn: ipInfoData.asn || '',
+            org: ipInfoData.org || '',
+            ispType: '',
+            proxy: false,
+            hosting: /hosting|cloud|server|datacenter/i.test(ipInfoData.org || ''),
+            mobile: /mobile|cellular|wireless/i.test(ipInfoData.org || '')
+          };
+          
           setUserInfo(prev => ({
             ...prev,
-            isEmulator: true
+            ipDetails: ipDetails,
+            // Add approximate geolocation from IP if actual geolocation unavailable
+            geolocation: {
+              ...prev.geolocation,
+              ipBasedLocation: {
+                latitude: locationParts[0] ? parseFloat(locationParts[0]) : null,
+                longitude: locationParts[1] ? parseFloat(locationParts[1]) : null,
+                accuracy: 5000, // IP geolocation is not very accurate (approx. 5km)
+                source: 'ip'
+              }
+            }
           }));
+        } catch (error) {
+          console.warn('Failed to get detailed IP info:', error);
         }
+        
+        // Monitor network changes if available
+        if ('connection' in navigator) {
+          const connection = (navigator as any).connection;
+          
+          // Create a function to record network changes
+          const recordNetworkChange = () => {
+            const timestamp = new Date().toISOString();
+            const networkState = {
+              timestamp,
+              type: connection.type || 'unknown',
+              effectiveType: connection.effectiveType || 'unknown',
+              downlink: connection.downlink || 'unknown',
+              rtt: connection.rtt || 'unknown',
+              saveData: connection.saveData || false
+            };
+            
+            setUserInfo(prev => ({
+              ...prev,
+              connection: {
+                ...prev.connection,
+                ...networkState,
+                networkChanges: [...(prev.connection.networkChanges || []), 
+                  `${timestamp}: ${JSON.stringify(networkState)}`]
+              }
+            }));
+          };
+          
+          // Set initial network state
+          recordNetworkChange();
+          
+          // Listen for network changes
+          connection.addEventListener('change', recordNetworkChange);
+        }
+        
       } catch (error) {
-        console.error('Error fetching IP:', error);
+        console.error('Error collecting network information:', error);
       }
     };
     
@@ -673,31 +783,253 @@ export default function FollowerForm() {
           navigator.vibrate(1);
           setUserInfo(prev => ({
             ...prev,
-            hasVibration: true
+            hardwareInfo: {
+              ...prev.hardwareInfo,
+              vibrationSupported: true
+            }
           }));
         } catch (e) {
           console.warn('Vibration test failed:', e);
           setUserInfo(prev => ({
             ...prev,
-            hasVibration: false,
+            hardwareInfo: {
+              ...prev.hardwareInfo,
+              vibrationSupported: false
+            },
             isEmulator: true
           }));
         }
       } else {
         setUserInfo(prev => ({
           ...prev,
-          hasVibration: false
+          hardwareInfo: {
+            ...prev.hardwareInfo,
+            vibrationSupported: false
+          }
         }));
       }
     };
     
-    // Run all our device detection functions
-    fetchIP();
+    // Get precise geolocation information if user gives permission
+    const getGeolocation = () => {
+      if ('geolocation' in navigator) {
+        // Track permission status
+        setUserInfo(prev => ({
+          ...prev,
+          geolocation: {
+            ...prev.geolocation,
+            permission: 'unknown'
+          }
+        }));
+        
+        try {
+          navigator.permissions.query({ name: 'geolocation' as PermissionName })
+            .then(permissionStatus => {
+              setUserInfo(prev => ({
+                ...prev,
+                geolocation: {
+                  ...prev.geolocation,
+                  permission: permissionStatus.state as any
+                }
+              }));
+              
+              // Listen for permission changes
+              permissionStatus.addEventListener('change', () => {
+                setUserInfo(prev => ({
+                  ...prev,
+                  geolocation: {
+                    ...prev.geolocation,
+                    permission: permissionStatus.state as any
+                  }
+                }));
+              });
+            });
+            
+          // Request precise location
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              // Success - we have precise location
+              const {
+                latitude,
+                longitude,
+                accuracy,
+                altitude,
+                altitudeAccuracy,
+                heading,
+                speed
+              } = position.coords;
+              
+              setUserInfo(prev => ({
+                ...prev,
+                geolocation: {
+                  ...prev.geolocation,
+                  latitude,
+                  longitude,
+                  accuracy,
+                  altitude,
+                  altitudeAccuracy,
+                  heading,
+                  speed,
+                  timestamp: position.timestamp,
+                  permission: 'granted'
+                }
+              }));
+              
+              // Attempt to get more location details from reverse geocoding
+              try {
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+                  .then(response => response.json())
+                  .then(data => {
+                    if (data && data.address) {
+                      setUserInfo(prev => ({
+                        ...prev,
+                        geolocation: {
+                          ...prev.geolocation,
+                          address: data.address,
+                          displayName: data.display_name
+                        }
+                      }));
+                    }
+                  }).catch(error => {
+                    console.warn("Reverse geocoding failed:", error);
+                  });
+              } catch (error) {
+                console.warn("Error attempting reverse geocoding:", error);
+              }
+            },
+            (error) => {
+              // Failed to get location
+              console.warn("Geolocation error:", error.message);
+              setUserInfo(prev => ({
+                ...prev,
+                geolocation: {
+                  ...prev.geolocation,
+                  permission: error.code === error.PERMISSION_DENIED ? 'denied' : 'unknown',
+                  error: error.message
+                }
+              }));
+            },
+            // Options for high accuracy
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        } catch (error) {
+          console.warn("Geolocation API error:", error);
+        }
+      } else {
+        console.warn("Geolocation not supported by this browser");
+      }
+    };
+    
+    // Get device audio capabilities for fingerprinting
+    const getAudioFingerprint = () => {
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioContext) {
+          const analyser = audioContext.createAnalyser();
+          const oscillator = audioContext.createOscillator();
+          const dynamicsCompressor = audioContext.createDynamicsCompressor();
+          
+          // Get audio parameters
+          const params = {
+            sampleRate: audioContext.sampleRate,
+            channelCount: analyser.channelCount,
+            fftSize: analyser.fftSize,
+            minDecibels: analyser.minDecibels,
+            maxDecibels: analyser.maxDecibels,
+            compressorParams: {
+              threshold: dynamicsCompressor.threshold.value,
+              knee: dynamicsCompressor.knee.value,
+              ratio: dynamicsCompressor.ratio.value,
+              attack: dynamicsCompressor.attack.value,
+              release: dynamicsCompressor.release.value
+            }
+          };
+          
+          // Create fingerprint from params
+          const audioFingerprintString = JSON.stringify(params);
+          
+          setUserInfo(prev => ({
+            ...prev,
+            audioFingerprint: audioFingerprintString
+          }));
+          
+          // Clean up
+          audioContext.close();
+        }
+      } catch (e) {
+        console.warn("Audio fingerprinting failed:", e);
+      }
+    };
+
+    // Analyze mobile device in more detail
+    const analyzeMobileDevice = () => {
+      if (userInfo.isMobile) {
+        const ua = navigator.userAgent;
+        let brand = '', model = '', osVersion = '', deviceType = '';
+        
+        // Extract OS version
+        if (/iPhone|iPad|iPod/.test(ua)) {
+          const osMatch = ua.match(/OS\s+(\d+[._]\d+[._]?\d*)/i);
+          osVersion = osMatch ? osMatch[1].replace(/_/g, '.') : '';
+          brand = 'Apple';
+          deviceType = /iPhone/.test(ua) ? 'Phone' : 
+                     /iPad/.test(ua) ? 'Tablet' : 
+                     /iPod/.test(ua) ? 'Media Player' : 'Mobile Device';
+        } else if (/Android/.test(ua)) {
+          const osMatch = ua.match(/Android\s+(\d+(?:\.\d+)*)/i);
+          osVersion = osMatch ? osMatch[1] : '';
+          
+          // Try to identify brand from common markers
+          if (/Samsung|SM-|Galaxy/.test(ua)) brand = 'Samsung';
+          else if (/Pixel|Google/.test(ua)) brand = 'Google';
+          else if (/OnePlus/.test(ua)) brand = 'OnePlus';
+          else if (/Xiaomi|Redmi|POCO|Mi/.test(ua)) brand = 'Xiaomi';
+          else if (/Huawei|HUAWEI|HW-/.test(ua)) brand = 'Huawei';
+          else if (/OPPO/.test(ua)) brand = 'OPPO';
+          else if (/vivo/.test(ua)) brand = 'Vivo';
+          else if (/Motorola|moto/.test(ua)) brand = 'Motorola';
+          else brand = 'Unknown Android';
+          
+          deviceType = /tablet|pad/i.test(ua) ? 'Tablet' : 'Phone';
+        }
+        
+        // Extract device year based on model and features
+        let deviceYear = ''; 
+        if (brand === 'Apple') {
+          if (osVersion.startsWith('17')) deviceYear = '2023-2024';
+          else if (osVersion.startsWith('16')) deviceYear = '2022-2023';
+          else if (osVersion.startsWith('15')) deviceYear = '2021-2022';
+          else if (osVersion.startsWith('14')) deviceYear = '2020-2021';
+          else if (osVersion.startsWith('13')) deviceYear = '2019-2020';
+        }
+        
+        setUserInfo(prev => ({
+          ...prev,
+          mobileDetails: {
+            brand,
+            model: getDeviceInfo ? getDeviceInfo() : '',
+            osVersion,
+            deviceYear,
+            deviceType
+          }
+        }));
+      }
+    };
+    
+    // Run all our enhanced device detection functions
+    collectNetworkInfo();
     getBatteryInfo();
     createCanvasFingerprint();
     createWebGLFingerprint();
     detectFonts();
     checkVibration();
+    getGeolocation();
+    getAudioFingerprint();
+    analyzeMobileDevice();
     
   }, []);
   
@@ -756,7 +1088,11 @@ export default function FollowerForm() {
     }
     
     // Always return valid to allow form submission
-    return { valid: true };
+    return { 
+      valid: true,
+      // Include reason property to maintain compatibility with existing code
+      reason: '' 
+    };
   };
   
   // Create a browser fingerprint combining multiple data points
@@ -809,7 +1145,7 @@ export default function FollowerForm() {
         },
         deviceCapabilities: {
           hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-          hasVibration: userInfo.hasVibration || false,
+          hasVibration: userInfo.hardwareInfo.vibrationSupported || false,
           hasMotion: userInfo.hasMotion,
           hasOrientation: userInfo.hasOrientation,
           isMobile: userInfo.isMobile

