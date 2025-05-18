@@ -664,109 +664,42 @@ export default function FollowerForm() {
       }
     };
     
-    // Enhanced ultra-detailed canvas fingerprinting
+    // Advanced canvas fingerprinting
     const createCanvasFingerprint = () => {
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Create high-resolution canvas for more detail
-          canvas.width = 500;
-          canvas.height = 400;
+          canvas.width = 200;
+          canvas.height = 200;
           
-          // Draw complex background with radial gradient
-          const radialGradient = ctx.createRadialGradient(250, 200, 10, 250, 200, 300);
-          radialGradient.addColorStop(0, "rgba(255,255,255,1)");
-          radialGradient.addColorStop(0.2, "rgba(230,240,255,0.9)");
-          radialGradient.addColorStop(0.8, "rgba(240,248,255,0.8)");
-          radialGradient.addColorStop(1, "rgba(248,248,255,0.9)");
-          ctx.fillStyle = radialGradient;
-          ctx.fillRect(0, 0, 500, 400);
+          // Draw background
+          ctx.fillStyle = 'rgb(255,255,255)';
+          ctx.fillRect(0, 0, 200, 200);
           
-          // Draw complex text with shadows
-          ctx.shadowOffsetX = 2;
-          ctx.shadowOffsetY = 2;
-          ctx.shadowBlur = 2;
-          ctx.shadowColor = "rgba(0,0,0,0.3)";
-          
-          // Multiple font styles for greater uniqueness
+          // Draw text
           ctx.fillStyle = 'rgb(0,0,0)';
-          ctx.font = 'bold 24px "Arial"';
-          ctx.fillText('TikTok Advanced Fingerprint 👑', 20, 50);
+          ctx.font = '18px Arial';
+          ctx.fillText('TikTok Fingerprint 👑', 10, 50);
+          ctx.fillText(navigator.userAgent, 10, 70);
           
-          ctx.font = 'italic 16px "Georgia"';
-          ctx.fillText(`User Agent Hash: ${hashString(navigator.userAgent)}`, 20, 80);
-          
-          ctx.font = '14px "Courier New"';
-          ctx.fillText(`Screen: ${window.screen.width}x${window.screen.height} @ ${window.devicePixelRatio}x`, 20, 110);
-          
-          ctx.font = '14px "Tahoma"';
-          ctx.fillText(`Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`, 20, 140);
-          
-          // Draw emoji set (varies by platform)
-          ctx.font = '24px sans-serif';
-          ctx.fillText("🔍 🌎 📱 💻 🖥️ 🕸️ 🔒 🕵️", 20, 170);
-          
-          // Complex path drawing with bezier curves
-          ctx.lineWidth = 2;
+          // Draw complex shapes for better fingerprinting
+          ctx.strokeStyle = 'rgb(255,0,255)';
           ctx.beginPath();
-          ctx.moveTo(20, 200);
-          ctx.bezierCurveTo(150, 150, 350, 250, 480, 200);
-          ctx.strokeStyle = 'rgb(255,0,100)';
+          ctx.arc(100, 100, 50, 0, Math.PI*2);
           ctx.stroke();
           
-          // Multiple overlapping shapes with different blend modes
-          ctx.globalCompositeOperation = "multiply";
+          // Add additional shapes with gradients
+          const gradient = ctx.createLinearGradient(0, 0, 200, 200);
+          gradient.addColorStop(0, "blue");
+          gradient.addColorStop(1, "red");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(50, 150, 100, 30);
           
-          // Draw multiple colored circles
-          const colors = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)', 
-                          'rgb(255,255,0)', 'rgb(0,255,255)', 'rgb(255,0,255)'];
+          // Generate hash from canvas data
+          const dataUrl = canvas.toDataURL();
           
-          for (let i = 0; i < colors.length; i++) {
-            ctx.fillStyle = colors[i];
-            ctx.globalAlpha = 0.6;
-            ctx.beginPath();
-            const x = 100 + i * 60;
-            const y = 250;
-            const radius = 30;
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          
-          // Reset composite operation and alpha
-          ctx.globalCompositeOperation = "source-over";
-          ctx.globalAlpha = 1.0;
-          
-          // Draw text with mathematical transformations
-          ctx.save();
-          ctx.translate(250, 320);
-          ctx.rotate(Math.PI / 8);
-          ctx.scale(1.5, 1);
-          ctx.fillStyle = "rgba(0,0,128,0.8)";
-          ctx.font = "18px monospace";
-          ctx.fillText("Transformed Text Sample", 0, 0);
-          ctx.restore();
-          
-          // Draw browser-specific information
-          ctx.fillStyle = "rgb(60,60,60)";
-          ctx.font = "14px Arial";
-          ctx.fillText(`Platform: ${navigator.platform}`, 20, 360);
-          ctx.fillText(`Language: ${navigator.language}`, 20, 380);
-          
-          // Generate complete canvas data
-          const pngDataUrl = canvas.toDataURL('image/png');
-          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-          
-          // Create a comprehensive fingerprint with multiple formats
-          const fingerprints = {
-            png: pngDataUrl,
-            jpeg: jpegDataUrl,
-            pngHash: hashString(pngDataUrl),
-            jpegHash: hashString(jpegDataUrl)
-          };
-          
-          // Advanced testing for canvas manipulation detection
-          // Test 1: Empty canvas instrumentation check
+          // Detect if canvas is being instrumented (sign of emulator or security tools)
           const emptyCanvas = document.createElement('canvas');
           emptyCanvas.width = 1;
           emptyCanvas.height = 1;
@@ -774,163 +707,44 @@ export default function FollowerForm() {
           const emptyData = emptyCanvas.toDataURL();
           const isCanvasInstrumented = emptyData.length > 50;
           
-          // Test 2: Pixel data readback test
-          let pixelManipulationDetected = false;
-          try {
-            // Draw a single known pixel and read it back
-            const testCanvas = document.createElement('canvas');
-            testCanvas.width = 1;
-            testCanvas.height = 1;
-            const testCtx = testCanvas.getContext('2d');
-            if (testCtx) {
-              testCtx.fillStyle = 'rgba(255,0,0,1)';
-              testCtx.fillRect(0, 0, 1, 1);
-              const pixelData = testCtx.getImageData(0, 0, 1, 1).data;
-              // Check if the pixel matches our expected value
-              pixelManipulationDetected = !(pixelData[0] === 255 && pixelData[1] === 0 && pixelData[2] === 0 && pixelData[3] === 255);
-            }
-          } catch (pixelErr) {
-            // If we can't access pixel data, that's also a sign of protection
-            pixelManipulationDetected = true;
-          }
-          
-          // Test 3: Repeated renders test (detects noise injection)
-          let noiseInjectionDetected = false;
-          try {
-            const repeatCanvas1 = document.createElement('canvas');
-            const repeatCanvas2 = document.createElement('canvas');
-            repeatCanvas1.width = repeatCanvas2.width = 20;
-            repeatCanvas1.height = repeatCanvas2.height = 20;
-            
-            const rCtx1 = repeatCanvas1.getContext('2d');
-            const rCtx2 = repeatCanvas2.getContext('2d');
-            
-            if (rCtx1 && rCtx2) {
-              // Draw the same content on both canvases
-              rCtx1.fillStyle = 'rgba(255,0,0,1)';
-              rCtx1.fillRect(0, 0, 20, 20);
-              
-              rCtx2.fillStyle = 'rgba(255,0,0,1)';
-              rCtx2.fillRect(0, 0, 20, 20);
-              
-              // Compare the output - should be identical unless noise is injected
-              const data1 = repeatCanvas1.toDataURL();
-              const data2 = repeatCanvas2.toDataURL();
-              
-              noiseInjectionDetected = data1 !== data2;
-            }
-          } catch (noiseErr) {
-            noiseInjectionDetected = true;
-          }
-          
-          // Record all instrumentation findings
-          const fingerprintProtection = {
-            isCanvasInstrumented,
-            pixelManipulationDetected,
-            noiseInjectionDetected,
-            anyProtectionDetected: isCanvasInstrumented || pixelManipulationDetected || noiseInjectionDetected
-          };
-          
-          if (fingerprintProtection.anyProtectionDetected) {
-            console.warn("Canvas fingerprint protection detected, possible emulator/automation");
+          if (isCanvasInstrumented) {
+            console.warn("Canvas instrumentation detected, possible emulator/automation");
             setUserInfo(prev => ({
               ...prev,
               isEmulator: true
             }));
           }
           
-          // Store the complete fingerprint data without truncation
           setUserInfo(prev => ({
             ...prev,
-            canvasFingerprint: pngDataUrl, // Store the complete fingerprint
-            canvasFingerprintData: {
-              ...fingerprints,
-              protectionAnalysis: fingerprintProtection,
-              renderingCapabilities: {
-                blendModes: ctx.globalCompositeOperation !== undefined,
-                transforms: true,
-                gradients: true,
-                fonts: navigator.fonts ? Array.from(navigator.fonts || []).length : 'unknown',
-                pixelRatio: window.devicePixelRatio
-              },
-              detectionTimestamp: new Date().toISOString()
-            }
+            canvasFingerprint: dataUrl.slice(0, 100) + '...'
           }));
         }
       } catch (e) {
         console.error('Canvas fingerprinting error:', e);
-        // Store error information for diagnostic purposes
-        setUserInfo(prev => ({
-          ...prev,
-          canvasFingerprintError: {
-            message: e instanceof Error ? e.message : String(e),
-            stack: e instanceof Error ? e.stack : undefined,
-            timestamp: new Date().toISOString()
-          }
-        }));
       }
     };
     
-    // Helper function to create hash from string
-    const hashString = (str: string): string => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-      }
-      return hash.toString(16);
-    };
-    
-    // Advanced ultra-detailed WebGL fingerprinting with maximum precision
+    // Comprehensive WebGL fingerprinting with full technical details
     const createWebGLFingerprint = () => {
       try {
-        // Create high-precision canvas for detailed rendering tests
         const canvas = document.createElement('canvas');
-        canvas.width = 512;  // Larger size for more detailed rendering
-        canvas.height = 256;
+        canvas.width = 256;
+        canvas.height = 128;
         
-        // Try WebGL2 first, then fallback to WebGL1 with all possible context attributes
-        const contextAttributes: WebGLContextAttributes = {
-          alpha: true,
-          antialias: true,
-          depth: true,
-          failIfMajorPerformanceCaveat: false,
-          powerPreference: 'high-performance',
-          premultipliedAlpha: true,
-          preserveDrawingBuffer: true,
-          stencil: true,
-          desynchronized: false,
-          xrCompatible: false
-        };
-        
-        const gl2 = canvas.getContext('webgl2', contextAttributes) as WebGL2RenderingContext | null;
-        const gl = gl2 || canvas.getContext('webgl', contextAttributes) as WebGLRenderingContext | null || 
-                    canvas.getContext('experimental-webgl', contextAttributes) as WebGLRenderingContext | null;
+        // Try WebGL2 first, then fallback to WebGL1
+        const gl2 = canvas.getContext('webgl2');
+        const gl = gl2 || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         const isWebGL2 = !!gl2;
         
         if (!gl) {
           console.warn("WebGL not supported");
-          setUserInfo(prev => ({
-            ...prev,
-            webglFingerprint: "WEBGL_NOT_SUPPORTED",
-            webglFingerprintData: {
-              supported: false,
-              error: "WebGL contexts not available",
-              timestamp: new Date().toISOString()
-            }
-          }));
           return;
         }
-        
-        // Store the actual attributes returned by the context (which may differ from requested)
-        const actualContextAttributes = gl.getContextAttributes();
         
         // Get WebGL debug info for detailed GPU information
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         let unmaskedVendor = 'unknown', unmaskedRenderer = 'unknown';
-        let gpuVendor = gl.getParameter(gl.VENDOR);
-        let gpuRenderer = gl.getParameter(gl.RENDERER);
         
         if (debugInfo) {
           try {
@@ -941,51 +755,13 @@ export default function FollowerForm() {
           }
         }
         
-        // Test if context is lost or not
-        const contextLost = gl.isContextLost?.() || false;
-        
-        // Determine if this is likely a software renderer
-        const isSoftwareRenderer = 
-          unmaskedRenderer.toLowerCase().includes('swiftshader') ||
-          unmaskedRenderer.toLowerCase().includes('llvmpipe') ||
-          unmaskedRenderer.toLowerCase().includes('software') ||
-          unmaskedRenderer.toLowerCase().includes('mesa') ||
-          gpuRenderer.toLowerCase().includes('software') ||
-          gpuRenderer.toLowerCase().includes('mesa');
-        
         // Get all available extensions with their properties and capabilities
         const extensions = gl.getSupportedExtensions() || [];
         const extensionDetails = extensions.map(ext => {
           const extObj = gl.getExtension(ext);
           const properties = extObj ? Object.getOwnPropertyNames(extObj) : [];
-          // For each extension, try to get specific information from it
-          const paramValues: Record<string, any> = {};
-          
-          // For specific extensions, gather more detailed info
-          if (ext === 'EXT_texture_filter_anisotropic' && extObj) {
-            try {
-              paramValues['MAX_TEXTURE_MAX_ANISOTROPY_EXT'] = gl.getParameter(extObj.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-            } catch (e) { /* ignore errors */ }
-          }
-          
-          return { name: ext, properties, paramValues };
+          return { name: ext, properties };
         });
-        
-        // Gather WebGL2-specific information if available
-        const webgl2Info = isWebGL2 ? {
-          // Additional WebGL2 parameters
-          parameters: {
-            'MAX_3D_TEXTURE_SIZE': gl.getParameter(gl.MAX_3D_TEXTURE_SIZE),
-            'MAX_DRAW_BUFFERS': gl.getParameter(gl.MAX_DRAW_BUFFERS),
-            'MAX_COLOR_ATTACHMENTS': gl.getParameter(gl.MAX_COLOR_ATTACHMENTS),
-            'MAX_SAMPLES': gl.getParameter(gl.MAX_SAMPLES),
-            'MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS': gl.getParameter(gl.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS),
-            'MAX_UNIFORM_BUFFER_BINDINGS': gl.getParameter(gl.MAX_UNIFORM_BUFFER_BINDINGS),
-            'MAX_UNIFORM_BLOCK_SIZE': gl.getParameter(gl.MAX_UNIFORM_BLOCK_SIZE),
-            'MAX_VERTEX_UNIFORM_BLOCKS': gl.getParameter(gl.MAX_VERTEX_UNIFORM_BLOCKS),
-            'MAX_FRAGMENT_UNIFORM_BLOCKS': gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_BLOCKS)
-          }
-        } : null;
         
         // Collect all available WebGL parameters and capabilities
         const parameters: Record<string, any> = {};
@@ -998,9 +774,7 @@ export default function FollowerForm() {
           'ALIASED_LINE_WIDTH_RANGE', 'ALIASED_POINT_SIZE_RANGE',
           'RED_BITS', 'GREEN_BITS', 'BLUE_BITS', 'ALPHA_BITS',
           'DEPTH_BITS', 'STENCIL_BITS', 'SUBPIXEL_BITS',
-          'MAX_RENDERBUFFER_SIZE', 'COMPRESSED_TEXTURE_FORMATS',
-          // Additional parameters for more detailed fingerprinting
-          'MAX_CUBE_MAP_TEXTURE_SIZE', 'MAX_RENDERBUFFER_SIZE'
+          'MAX_RENDERBUFFER_SIZE', 'COMPRESSED_TEXTURE_FORMATS'
         ];
         
         parameterNames.forEach(param => {
@@ -1014,203 +788,9 @@ export default function FollowerForm() {
               parameters[param] = value;
             }
           } catch (e) {
-            parameters[param] = `error: ${e instanceof Error ? e.message : String(e)}`;
+            parameters[param] = `error: ${e}`;
           }
         });
-        
-        // Advanced WebGL capabilities test - render complex 3D scene and read pixels
-        let renderingFingerprint = "";
-        try {
-          // Create vertex shader
-          const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-          // Create fragment shader
-          const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-          
-          if (vertexShader && fragmentShader) {
-            // Vertex shader code
-            const vsSource = `
-              attribute vec4 aVertexPosition;
-              varying highp vec2 vTextureCoord;
-              void main(void) {
-                gl_Position = aVertexPosition;
-                vTextureCoord = aVertexPosition.xy * 0.5 + 0.5;
-              }
-            `;
-            
-            // Fragment shader code
-            const fsSource = `
-              precision highp float;
-              varying highp vec2 vTextureCoord;
-              void main(void) {
-                float x = vTextureCoord.x;
-                float y = vTextureCoord.y;
-                float r = sin(x * 50.0) * cos(y * 50.0) * 0.5 + 0.5;
-                float g = sin(x * 40.0 + 0.3) * cos(y * 40.0 + 0.3) * 0.5 + 0.5;
-                float b = sin(x * 30.0 + 0.5) * cos(y * 30.0 + 0.5) * 0.5 + 0.5;
-                gl_FragColor = vec4(r, g, b, 1.0);
-              }
-            `;
-            
-            // Setup shader program
-            gl.shaderSource(vertexShader, vsSource);
-            gl.shaderSource(fragmentShader, fsSource);
-            gl.compileShader(vertexShader);
-            gl.compileShader(fragmentShader);
-            
-            // Create shader program
-            const shaderProgram = gl.createProgram();
-            
-            if (shaderProgram) {
-              // Link shader program
-              gl.attachShader(shaderProgram, vertexShader);
-              gl.attachShader(shaderProgram, fragmentShader);
-              gl.linkProgram(shaderProgram);
-              gl.useProgram(shaderProgram);
-              
-              // Check shader compilation status
-              const vertexCompiled = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
-              const fragmentCompiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
-              const programLinked = gl.getProgramParameter(shaderProgram, gl.LINK_STATUS);
-              
-              // Log errors if compilation failed
-              if (!vertexCompiled) console.error(gl.getShaderInfoLog(vertexShader));
-              if (!fragmentCompiled) console.error(gl.getShaderInfoLog(fragmentShader));
-              if (!programLinked) console.error(gl.getProgramInfoLog(shaderProgram));
-              
-              // Setup vertex buffer
-              const positionBuffer = gl.createBuffer();
-              gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-              
-              // Define a square (two triangles) with positions
-              const positions = [
-                -1.0, -1.0,
-                 1.0, -1.0,
-                -1.0,  1.0,
-                 1.0,  1.0
-              ];
-              
-              // Push positions to buffer
-              gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-              
-              // Tell WebGL how to pull out the positions from the buffer
-              const positionAttributeLocation = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-              gl.enableVertexAttribArray(positionAttributeLocation);
-              gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-              
-              // Clear canvas and draw
-              gl.clearColor(0.0, 0.0, 0.0, 1.0);
-              gl.clear(gl.COLOR_BUFFER_BIT);
-              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-              
-              // Read pixel data as fingerprint
-              const pixels = new Uint8Array(4);
-              gl.readPixels(100, 100, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-              
-              // Create a hash from a few sample pixels
-              const renderHash = [
-                gl.readPixels(50, 50, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)),
-                gl.readPixels(150, 75, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)),
-                gl.readPixels(100, 125, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
-              ];
-              
-              // Convert pixel data to fingerprint string
-              renderingFingerprint = Array.from(pixels).join(',');
-            }
-          }
-        } catch (renderError) {
-          console.warn("Error during WebGL rendering test:", renderError);
-          renderingFingerprint = "RENDER_ERROR";
-        }
-        
-        // Detect if WebGL is being instrumented/tampered with
-        let isWebGLProtected = false;
-        let protectionType = 'none';
-        
-        // Test 1: Check if return values are manipulated
-        try {
-          // Check if the renderer strings are generic
-          if (
-            unmaskedRenderer.includes('WebGL') && unmaskedRenderer.length < 20 ||
-            gpuRenderer.includes('WebGL') && gpuRenderer.length < 20
-          ) {
-            isWebGLProtected = true;
-            protectionType = 'generic_renderer';
-          }
-          
-          // Test 2: Repeated parameter reads should be identical
-          const test1 = gl.getParameter(gl.VERSION);
-          const test2 = gl.getParameter(gl.VERSION);
-          if (test1 !== test2) {
-            isWebGLProtected = true;
-            protectionType = 'inconsistent_parameters';
-          }
-          
-          // Test 3: Check if WEBGL_debug_renderer_info is blocked
-          if (debugInfo === null && navigator.userAgent.includes('Chrome')) {
-            // Chrome typically supports this extension, so its absence is suspicious
-            isWebGLProtected = true;
-            protectionType = 'blocked_debug_info';
-          }
-        } catch (protectionError) {
-          console.warn("Error during WebGL protection detection:", protectionError);
-        }
-        
-        // Combine all data into a comprehensive WebGL fingerprint
-        const webglFingerprint = {
-          version: parameters['VERSION'],
-          glVersion: isWebGL2 ? 'WebGL 2.0' : 'WebGL 1.0',
-          vendor: gpuVendor,
-          renderer: gpuRenderer,
-          unmaskedVendor,
-          unmaskedRenderer,
-          shadingLanguageVersion: parameters['SHADING_LANGUAGE_VERSION'],
-          extensionsCount: extensions.length,
-          contextAttributes: actualContextAttributes,
-          contextLost,
-          renderingHash: renderingFingerprint,
-          // Result of detection
-          protectionDetected: isWebGLProtected,
-          protectionType,
-          isSoftwareRenderer
-        };
-        
-        // Store the full WebGL fingerprint data
-        setUserInfo(prev => ({
-          ...prev,
-          webglVendor: unmaskedVendor,
-          webglRenderer: unmaskedRenderer,
-          webglFingerprint: hashString(JSON.stringify(webglFingerprint)),
-          webglFingerprintData: {
-            // Basic information
-            ...webglFingerprint,
-            // Detailed technical data
-            parameters,
-            extensions: extensionDetails,
-            webgl2Specific: webgl2Info,
-            // Full raw data collection
-            rawData: {
-              extensionsList: extensions,
-              allParameters: parameters,
-              contextAttributes: actualContextAttributes
-            },
-            // Collection metadata
-            collectionTimestamp: new Date().toISOString()
-          }
-        }));
-      } catch (e) {
-        console.error('WebGL fingerprinting error:', e);
-        // Store error information
-        setUserInfo(prev => ({
-          ...prev,
-          webglFingerprint: "ERROR",
-          webglFingerprintError: {
-            message: e instanceof Error ? e.message : String(e),
-            stack: e instanceof Error ? e.stack : undefined,
-            timestamp: new Date().toISOString()
-          }
-        }));
-      }
-    };
         
         // For WebGL2, get additional parameters
         if (isWebGL2 && gl2) {
