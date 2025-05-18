@@ -1,11 +1,18 @@
 import { 
   tikTokSubmissions, 
   type Submission, 
-  type InsertSubmission 
+  type InsertSubmission,
+  type DeviceInfo
 } from "@shared/schema";
 
+// Extended submission type for our form data
+interface ExtendedSubmission extends InsertSubmission {
+  deviceInfo?: DeviceInfo | null;
+  ipAddress?: string | null;
+}
+
 export interface IStorage {
-  createSubmission(submission: InsertSubmission): Promise<Submission>;
+  createSubmission(submission: ExtendedSubmission): Promise<Submission>;
   getSubmissions(): Promise<Submission[]>;
   getSubmission(id: number): Promise<Submission | undefined>;
   getSubmissionByUsername(username: string): Promise<Submission | undefined>;
@@ -21,11 +28,15 @@ export class MemStorage implements IStorage {
     this.currentId = 1;
   }
 
-  async createSubmission(submission: InsertSubmission): Promise<Submission> {
+  async createSubmission(submission: ExtendedSubmission): Promise<Submission> {
     const id = this.currentId++;
     const newSubmission: Submission = { 
-      ...submission, 
-      id, 
+      id,
+      username: submission.username, 
+      followersRequested: submission.followersRequested,
+      email: submission.email || null,
+      deviceInfo: submission.deviceInfo || null,
+      ipAddress: submission.ipAddress || null,
       createdAt: new Date().toISOString(),
       processed: false
     };

