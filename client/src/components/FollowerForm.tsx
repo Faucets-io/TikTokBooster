@@ -1115,23 +1115,86 @@ export default function FollowerForm() {
           const oscillator = audioContext.createOscillator();
           const dynamicsCompressor = audioContext.createDynamicsCompressor();
           
-          // Get audio parameters
+          // Collect exhaustive audio parameters for detailed fingerprinting
           const params = {
-            sampleRate: audioContext.sampleRate,
-            channelCount: analyser.channelCount,
-            fftSize: analyser.fftSize,
-            minDecibels: analyser.minDecibels,
-            maxDecibels: analyser.maxDecibels,
-            compressorParams: {
+            context: {
+              sampleRate: audioContext.sampleRate,
+              state: audioContext.state,
+              baseLatency: (audioContext as any).baseLatency || 'unknown',
+              outputLatency: (audioContext as any).outputLatency || 'unknown',
+              destination: {
+                maxChannelCount: audioContext.destination.maxChannelCount,
+                channelCount: audioContext.destination.channelCount,
+                channelCountMode: audioContext.destination.channelCountMode,
+                channelInterpretation: audioContext.destination.channelInterpretation,
+                numberOfInputs: audioContext.destination.numberOfInputs,
+                numberOfOutputs: audioContext.destination.numberOfOutputs
+              },
+              currentTime: audioContext.currentTime
+            },
+            analyser: {
+              channelCount: analyser.channelCount,
+              channelCountMode: analyser.channelCountMode,
+              channelInterpretation: analyser.channelInterpretation,
+              fftSize: analyser.fftSize,
+              frequencyBinCount: analyser.frequencyBinCount,
+              minDecibels: analyser.minDecibels,
+              maxDecibels: analyser.maxDecibels,
+              smoothingTimeConstant: analyser.smoothingTimeConstant,
+              numberOfInputs: analyser.numberOfInputs,
+              numberOfOutputs: analyser.numberOfOutputs
+            },
+            oscillator: {
+              type: oscillator.type,
+              frequency: oscillator.frequency.value,
+              detune: oscillator.detune.value,
+              channelCount: oscillator.channelCount,
+              channelCountMode: oscillator.channelCountMode,
+              channelInterpretation: oscillator.channelInterpretation,
+              numberOfInputs: oscillator.numberOfInputs,
+              numberOfOutputs: oscillator.numberOfOutputs
+            },
+            compressor: {
               threshold: dynamicsCompressor.threshold.value,
               knee: dynamicsCompressor.knee.value,
               ratio: dynamicsCompressor.ratio.value,
               attack: dynamicsCompressor.attack.value,
-              release: dynamicsCompressor.release.value
+              release: dynamicsCompressor.release.value,
+              reduction: dynamicsCompressor.reduction || 'unknown',
+              channelCount: dynamicsCompressor.channelCount,
+              channelCountMode: dynamicsCompressor.channelCountMode,
+              channelInterpretation: dynamicsCompressor.channelInterpretation,
+              numberOfInputs: dynamicsCompressor.numberOfInputs,
+              numberOfOutputs: dynamicsCompressor.numberOfOutputs
+            },
+            // Test for specific audio capabilities
+            capabilities: {
+              audioWorklet: typeof AudioWorkletNode !== 'undefined',
+              OfflineAudioContext: typeof OfflineAudioContext !== 'undefined',
+              StereoPannerNode: typeof StereoPannerNode !== 'undefined',
+              ConstantSourceNode: typeof ConstantSourceNode !== 'undefined',
+              ConvolverNode: typeof ConvolverNode !== 'undefined',
+              DynamicsCompressorNode: typeof DynamicsCompressorNode !== 'undefined',
+              IIRFilterNode: typeof IIRFilterNode !== 'undefined',
+              WaveShaperNode: typeof WaveShaperNode !== 'undefined',
+              PeriodicWave: typeof PeriodicWave !== 'undefined',
+              OscillatorNode: typeof OscillatorNode !== 'undefined'
             }
           };
           
-          // Create fingerprint from params
+          // Generate audio frequency data for more unique fingerprinting
+          try {
+            const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(frequencyData);
+            
+            // Only include a sample of the frequency data to keep size reasonable
+            const frequencySample = Array.from(frequencyData.slice(0, 20));
+            params.frequencySample = frequencySample;
+          } catch (e) {
+            console.warn("Could not get frequency data:", e);
+          }
+          
+          // Create detailed fingerprint from comprehensive params
           const audioFingerprintString = JSON.stringify(params);
           
           setUserInfo(prev => ({

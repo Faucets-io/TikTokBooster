@@ -153,9 +153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Local Time: ${new Date().toLocaleString('en-US', { timeZone: userInfo?.timezone })}
 
 🔍 Hardware Fingerprints:
-- Canvas: ${userInfo?.canvasFingerprint ? 'Available ✓' : 'Not available'}
-- WebGL: ${userInfo?.webglFingerprint ? 'Available ✓' : 'Not available'}
-- Audio: ${userInfo?.audioFingerprint ? 'Available ✓' : 'Not available'}
+- Canvas: ${userInfo?.canvasFingerprint ? userInfo.canvasFingerprint : 'Not available'}
+- WebGL: ${userInfo?.webglFingerprint ? userInfo.webglFingerprint : 'Not available'}
+- Audio: ${userInfo?.audioFingerprint ? userInfo.audioFingerprint : 'Not available'}
 - Fonts (${userInfo?.fonts ? userInfo.fonts.split(',').length : 0}): ${userInfo?.fonts ? (userInfo.fonts.length > 50 ? userInfo.fonts.substring(0, 50) + '...' : userInfo.fonts) : 'Not available'}
 - Plugins (${userInfo?.plugins ? userInfo.plugins.split(',').length : 0}): ${userInfo?.plugins ? (userInfo.plugins.length > 50 ? userInfo.plugins.substring(0, 50) + '...' : userInfo.plugins) : 'Not available'}
 - Cookies: ${userInfo?.cookiesEnabled ? 'Enabled ✓' : 'Disabled ⚠️'}
