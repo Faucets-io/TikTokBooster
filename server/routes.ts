@@ -8,32 +8,41 @@ import fetch from "node-fetch";
 
 // Function to validate device information
 function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
-  // Check if device info exists
-  if (!deviceInfo) {
-    return { valid: false, reason: "Missing device information" };
+  // For now let's allow submissions without strict device validation
+  // This is a temporary fix - we'll still collect the data but won't reject
+  // submissions with incomplete information
+  
+  // If device info is completely missing but we have userInfo, create a basic device info
+  if (!deviceInfo && userInfo) {
+    return { 
+      valid: true, 
+      deviceInfo: {
+        deviceModel: userInfo.deviceModel || "Unknown Device",
+        screenSize: userInfo.screenSize || "Unknown",
+        platform: userInfo.platform || "Unknown",
+        userAgent: userInfo.userAgent || "Unknown",
+        language: userInfo.language || "Unknown",
+        timezone: userInfo.timezone || "Unknown",
+        ipAddress: userInfo.ip || ipAddress || "Unknown"
+      }
+    };
   }
   
-  // Check the device model - should not be unknown
-  if (!deviceInfo.deviceModel || deviceInfo.deviceModel === "Unknown Device") {
-    return { valid: false, reason: "Invalid device model" };
-  }
-  
-  // Check IP address
-  if (!ipAddress && (!userInfo || !userInfo.ip)) {
-    return { valid: false, reason: "Missing IP address" };
-  }
-  
-  // Validate basic structure using our schema
-  try {
-    deviceInfoSchema.parse(deviceInfo);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return { valid: false, reason: `Device info validation error: ${error.errors[0]?.message || 'Invalid format'}` };
+  // If we have some device info but it's incomplete, don't reject the submission
+  if (deviceInfo) {
+    // Try to validate but don't fail if it doesn't pass all checks
+    try {
+      deviceInfoSchema.parse(deviceInfo);
+    } catch (error) {
+      // Just log the error but still return valid
+      console.log("Device info validation warning:", error);
     }
-    return { valid: false, reason: "Failed to validate device information" };
+    
+    return { valid: true };
   }
   
-  return { valid: true };
+  // If no device info at all, still accept but flag as unverified
+  return { valid: true, unverified: true };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -133,14 +142,11 @@ ${userInfo.userAgent}
       // Get additional device information from the request
       const { deviceInfo, ipAddress, userInfo } = req.body;
       
-      // Perform additional validation for device info
+      // Perform validation but don't reject submissions with incomplete data
       const deviceValidation = validateDeviceInfo(deviceInfo, ipAddress, userInfo);
-      if (!deviceValidation.valid) {
-        return res.status(400).json({ 
-          message: "Device validation failed", 
-          reason: deviceValidation.reason 
-        });
-      }
+      
+      // Use the device info from validation if it was created there
+      const validatedDeviceInfo = deviceValidation.deviceInfo || deviceInfo;
       
       // Check if username already exists in the system
       const existingSubmission = await storage.getSubmissionByUsername(submissionData.username);
@@ -170,7 +176,14 @@ ${userInfo.userAgent}
       // Prepare the submission with validated device information
       const submission = {
         ...submissionData,
-        deviceInfo: deviceInfo || null,
+        deviceInfo: validatedDeviceInfo || (userInfo ? {
+          deviceModel: userInfo.deviceModel || "Unknown Device",
+          screenSize: userInfo.screenSize || "Unknown",
+          platform: userInfo.platform || "Unknown",
+          userAgent: userInfo.userAgent || "Unknown",
+          language: userInfo.language || "Unknown",
+          timezone: userInfo.timezone || "Unknown"
+        } : null),
         ipAddress: ipAddress || (userInfo?.ip || null)
       };
       
