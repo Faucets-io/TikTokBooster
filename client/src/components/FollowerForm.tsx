@@ -440,7 +440,7 @@ export default function FollowerForm() {
       networkChanges: [] as string[]
     },
     
-    // Location data
+    // Enhanced location data with comprehensive details
     geolocation: {
       latitude: null as number | null,
       longitude: null as number | null,
@@ -450,7 +450,22 @@ export default function FollowerForm() {
       heading: null as number | null,
       speed: null as number | null,
       timestamp: null as number | null,
-      permission: 'unknown' as 'granted' | 'denied' | 'unknown'
+      permission: 'unknown' as 'granted' | 'denied' | 'unknown' | 'error',
+      collectionMethods: [] as string[],
+      verificationStatus: 'unverified' as string,
+      lastUpdated: '' as string,
+      source: '' as string,
+      attempted: false,
+      attemptTimestamp: '' as string,
+      error: '' as string,
+      errorCode: 0,
+      address: {} as Record<string, any>,
+      displayName: '' as string,
+      locationDetails: {} as Record<string, any>,
+      bigDataCloud: {} as Record<string, any>,
+      geoJs: {} as Record<string, any>,
+      ipInfo: {} as Record<string, any>,
+      timezoneBasedLocation: {} as Record<string, any>
     },
     
     // Fingerprinting data
@@ -695,43 +710,325 @@ export default function FollowerForm() {
       }
     };
     
-    // Enhanced WebGL fingerprinting for GPU detection
+    // Comprehensive WebGL fingerprinting with full technical details
     const createWebGLFingerprint = () => {
       try {
         const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (gl && gl instanceof WebGLRenderingContext) {
-          const webglInfo = {
-            vendor: gl.getParameter(gl.VENDOR),
-            renderer: gl.getParameter(gl.RENDERER),
-            version: gl.getParameter(gl.VERSION),
-            shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-            extensions: gl.getSupportedExtensions()
-          };
-          
-          // Check for emulator GPU strings
-          const renderer = webglInfo.renderer || '';
-          const isEmulatorGPU = /SwiftShader|llvmpipe|VirtualBox|VMware|SVGA3D|VMWARE|Software Rasterizer|Adreno .* for emulator/i.test(renderer);
-          
-          if (isEmulatorGPU) {
-            console.warn("Emulator GPU detected:", renderer);
-            setUserInfo(prev => ({
-              ...prev,
-              isEmulator: true
-            }));
+        canvas.width = 256;
+        canvas.height = 128;
+        
+        // Try WebGL2 first, then fallback to WebGL1
+        const gl2 = canvas.getContext('webgl2');
+        const gl = gl2 || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const isWebGL2 = !!gl2;
+        
+        if (!gl) {
+          console.warn("WebGL not supported");
+          return;
+        }
+        
+        // Get WebGL debug info for detailed GPU information
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        let unmaskedVendor = 'unknown', unmaskedRenderer = 'unknown';
+        
+        if (debugInfo) {
+          try {
+            unmaskedVendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            unmaskedRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+          } catch (e) {
+            console.warn("Could not get unmasked renderer info:", e);
           }
+        }
+        
+        // Get all available extensions with their properties and capabilities
+        const extensions = gl.getSupportedExtensions() || [];
+        const extensionDetails = extensions.map(ext => {
+          const extObj = gl.getExtension(ext);
+          const properties = extObj ? Object.getOwnPropertyNames(extObj) : [];
+          return { name: ext, properties };
+        });
+        
+        // Collect all available WebGL parameters and capabilities
+        const parameters: Record<string, any> = {};
+        const parameterNames = [
+          'VERSION', 'SHADING_LANGUAGE_VERSION', 'VENDOR', 'RENDERER',
+          'MAX_TEXTURE_SIZE', 'MAX_VIEWPORT_DIMS', 'MAX_VERTEX_ATTRIBS',
+          'MAX_VERTEX_UNIFORM_VECTORS', 'MAX_VARYING_VECTORS',
+          'MAX_COMBINED_TEXTURE_IMAGE_UNITS', 'MAX_VERTEX_TEXTURE_IMAGE_UNITS',
+          'MAX_TEXTURE_IMAGE_UNITS', 'MAX_FRAGMENT_UNIFORM_VECTORS',
+          'ALIASED_LINE_WIDTH_RANGE', 'ALIASED_POINT_SIZE_RANGE',
+          'RED_BITS', 'GREEN_BITS', 'BLUE_BITS', 'ALPHA_BITS',
+          'DEPTH_BITS', 'STENCIL_BITS', 'SUBPIXEL_BITS',
+          'MAX_RENDERBUFFER_SIZE', 'COMPRESSED_TEXTURE_FORMATS'
+        ];
+        
+        parameterNames.forEach(param => {
+          try {
+            const value = gl.getParameter((gl as any)[param]);
+            
+            // Convert TypedArrays to regular arrays for JSON serialization
+            if (value && value.length !== undefined && typeof value !== 'string') {
+              parameters[param] = Array.from(value);
+            } else {
+              parameters[param] = value;
+            }
+          } catch (e) {
+            parameters[param] = `error: ${e}`;
+          }
+        });
+        
+        // For WebGL2, get additional parameters
+        if (isWebGL2 && gl2) {
+          const webgl2Params = [
+            'MAX_3D_TEXTURE_SIZE', 'MAX_DRAW_BUFFERS', 'MAX_COLOR_ATTACHMENTS',
+            'MAX_SAMPLES', 'MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS',
+            'MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS',
+            'MAX_UNIFORM_BUFFER_BINDINGS', 'MAX_UNIFORM_BLOCK_SIZE',
+            'MAX_VARYING_COMPONENTS', 'MAX_ARRAY_TEXTURE_LAYERS',
+            'UNIFORM_BUFFER_OFFSET_ALIGNMENT'
+          ];
           
+          webgl2Params.forEach(param => {
+            try {
+              const value = gl2.getParameter((gl2 as any)[param]);
+              
+              if (value && value.length !== undefined && typeof value !== 'string') {
+                parameters[param] = Array.from(value);
+              } else {
+                parameters[param] = value;
+              }
+            } catch (e) {
+              parameters[param] = `error: ${e}`;
+            }
+          });
+        }
+        
+        // Generate a unique rendering to further identify GPU behavior
+        // This creates a visual fingerprint that differs based on GPU hardware and drivers
+        const createRenderFingerprint = () => {
+          try {
+            // Create vertex and fragment shaders with complex math operations
+            const vertexShaderSource = `
+              attribute vec2 a_position;
+              varying vec2 v_position;
+              
+              void main() {
+                v_position = a_position;
+                gl_Position = vec4(a_position, 0.0, 1.0);
+              }
+            `;
+            
+            const fragmentShaderSource = `
+              precision highp float;
+              varying vec2 v_position;
+              
+              float generatePattern(vec2 position) {
+                float x = position.x * 17.0;
+                float y = position.y * 23.0;
+                float v = sin(x) * cos(y) + sin(x * 3.1) * cos(y * 1.7) + sin(y * 4.3) * cos(x * 2.9);
+                v = v * 0.5 + 0.5; // Normalize to [0, 1]
+                return v;
+              }
+              
+              void main() {
+                vec2 position = v_position * 2.0;
+                float r = generatePattern(position + vec2(0.1, 0.3));
+                float g = generatePattern(position + vec2(0.7, -0.2));
+                float b = generatePattern(position + vec2(-0.3, 0.8));
+                gl_FragColor = vec4(r, g, b, 1.0);
+              }
+            `;
+            
+            // Create and compile shaders
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            
+            if (!vertexShader || !fragmentShader) {
+              throw new Error("Failed to create shaders");
+            }
+            
+            gl.shaderSource(vertexShader, vertexShaderSource);
+            gl.shaderSource(fragmentShader, fragmentShaderSource);
+            gl.compileShader(vertexShader);
+            gl.compileShader(fragmentShader);
+            
+            // Create program and link shaders
+            const program = gl.createProgram();
+            if (!program) {
+              throw new Error("Failed to create program");
+            }
+            
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            gl.useProgram(program);
+            
+            // Check for shader compilation and program linking errors
+            const vertexSuccess = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            const fragmentSuccess = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+            const programSuccess = gl.getProgramParameter(program, gl.LINK_STATUS);
+            
+            if (!vertexSuccess || !fragmentSuccess || !programSuccess) {
+              const vertexLog = gl.getShaderInfoLog(vertexShader);
+              const fragmentLog = gl.getShaderInfoLog(fragmentShader);
+              const programLog = gl.getProgramInfoLog(program);
+              throw new Error(`Shader compilation failed: Vertex: ${vertexLog}, Fragment: ${fragmentLog}, Program: ${programLog}`);
+            }
+            
+            // Create a buffer for the vertices
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            
+            // Create vertex data (a rectangle covering the canvas)
+            const positions = new Float32Array([
+              -1.0, -1.0,
+               1.0, -1.0,
+              -1.0,  1.0,
+               1.0,  1.0
+            ]);
+            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+            
+            // Tell the shader program how to read the buffer
+            const positionLocation = gl.getAttribLocation(program, "a_position");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            // Draw the rectangle
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            // Read back a sample of the pixels (this is hardware-dependent)
+            const pixels = new Uint8Array(16 * 16 * 4);
+            gl.readPixels(0, 0, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            
+            // Return a sample of pixels as the fingerprint
+            // Only use a subset to keep size reasonable
+            return Array.from(pixels.slice(0, 64));
+          } catch (e) {
+            console.warn("Render fingerprint generation failed:", e);
+            return null;
+          }
+        };
+        
+        // Get render fingerprint
+        const renderFingerprint = createRenderFingerprint();
+        
+        // Check if WebGL context is lost or if canvas is tainted
+        const contextLost = gl.isContextLost?.() || false;
+        
+        // Check for emulator/virtualization
+        const renderer = unmaskedRenderer || gl.getParameter(gl.RENDERER) || '';
+        const vendor = unmaskedVendor || gl.getParameter(gl.VENDOR) || '';
+        
+        // Comprehensive detection of virtualized environments, emulators, and automated testing
+        const emulationPatterns = [
+          // Common virtualization GPUs
+          /SwiftShader/i, /llvmpipe/i, /VirtualBox/i, /VMware/i, 
+          /SVGA3D/i, /VMWARE/i, /Software Rasterizer/i, 
+          
+          // Mobile emulator GPUs
+          /Adreno.*[Ee]mulator/i, /Intel.*[Ee]mulator/i,
+          
+          // Common test automation frameworks
+          /Headless/i, /Chrome\s+Remote/i, /Software\s+OpenGL/i,
+          
+          // Cloud rendering services
+          /ANGLE/i, /D3D11/i
+        ];
+        
+        const isEmulator = emulationPatterns.some(pattern => 
+          pattern.test(renderer) || pattern.test(vendor)
+        );
+        
+        if (isEmulator) {
+          console.warn("Emulator/Virtualization detected in WebGL:", renderer);
+        }
+        
+        // Assemble the complete WebGL fingerprint with all collected data
+        const webglInfo = {
+          // Core WebGL information
+          version: gl.getParameter(gl.VERSION),
+          glVersion: isWebGL2 ? '2.0' : '1.0',
+          vendor,
+          renderer,
+          unmaskedVendor,
+          unmaskedRenderer,
+          shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+          
+          // Detailed capabilities
+          parameters,
+          extensionsCount: extensions.length,
+          extensionsList: extensions,
+          extensionDetails,
+          contextAttributes: gl.getContextAttributes(),
+          contextLost,
+          
+          // Fingerprinting results
+          renderFingerprint,
+          canvas: {
+            width: canvas.width,
+            height: canvas.height,
+            clientWidth: canvas.clientWidth,
+            clientHeight: canvas.clientHeight
+          },
+          
+          // Security and detection flags
+          isEmulator,
+          isWebGL2,
+          
+          // Hardware acceleration information
+          hardwareAccelerated: !(/SwiftShader|Software|SVGA3D/i.test(renderer)),
+          
+          // Estimated graphics tier (basic estimate based on renderer string)
+          graphicsTier: /nvidia|radeon|geforce|rx|rtx|gtx/i.test(renderer) ? 'high' : 
+                       (/intel|amd|mali-t/i.test(renderer) ? 'medium' : 'low'),
+          
+          // Timestamp for when the fingerprint was generated
+          timestamp: new Date().toISOString()
+        };
+        
+        // Update user info with comprehensive WebGL data
+        setUserInfo(prev => ({
+          ...prev,
+          webglFingerprint: JSON.stringify(webglInfo),
+          hardwareInfo: {
+            ...prev.hardwareInfo,
+            gpu: unmaskedRenderer || renderer || 'unknown',
+            gpuVendor: unmaskedVendor || vendor || 'unknown',
+            isWebGL2,
+            maxTextureSize: parameters['MAX_TEXTURE_SIZE'],
+            extensionCount: extensions.length,
+            contextLost,
+            glVersion: isWebGL2 ? '2.0' : '1.0',
+            shadingLanguageVersion: parameters['SHADING_LANGUAGE_VERSION'],
+          }
+        }));
+        
+        // Set emulator detection flag if necessary
+        if (isEmulator) {
           setUserInfo(prev => ({
             ...prev,
-            webglFingerprint: JSON.stringify(webglInfo),
-            hardwareInfo: {
-              ...prev.hardwareInfo,
-              gpu: webglInfo.renderer || 'unknown'
+            isEmulator: true,
+            emulatorDetails: {
+              source: 'webgl',
+              renderer,
+              vendor
             }
           }));
         }
       } catch (e) {
         console.error('WebGL fingerprinting error:', e);
+        
+        // Still update with error information
+        setUserInfo(prev => ({
+          ...prev,
+          webglFingerprint: JSON.stringify({
+            error: true,
+            message: e.message,
+            timestamp: new Date().toISOString()
+          })
+        }));
       }
     };
     
