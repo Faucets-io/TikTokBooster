@@ -407,7 +407,8 @@ export default function FollowerForm() {
     cookiesEnabled: navigator.cookieEnabled,
     doNotTrack: navigator.doNotTrack || (window as any).doNotTrack || 'unknown',
     plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
-    hasVibration: false, // Add this to fix TS error
+    mimeTypes: Array.from(navigator.mimeTypes || []).map(m => m.type).join(','),
+    hasVibration: 'vibrate' in navigator,
     
     // Enhanced Network information
     ip: '',
@@ -438,6 +439,71 @@ export default function FollowerForm() {
       saveData: false,
       type: 'unknown',
       networkChanges: [] as string[]
+    },
+    
+    // Advanced device capabilities
+    deviceCapabilities: {
+      vibration: 'vibrate' in navigator,
+      orientation: 'orientation' in window || 'DeviceOrientationEvent' in window,
+      touchscreen: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      localStorage: (() => { try { return !!window.localStorage; } catch (e) { return false; } })(),
+      sessionStorage: (() => { try { return !!window.sessionStorage; } catch (e) { return false; } })(),
+      indexedDB: (() => { try { return !!window.indexedDB; } catch (e) { return false; } })(),
+      serviceWorker: 'serviceWorker' in navigator,
+      webRTC: !!(window.RTCPeerConnection || (window as any).mozRTCPeerConnection || (window as any).webkitRTCPeerConnection),
+      webSocket: 'WebSocket' in window,
+      geolocation: 'geolocation' in navigator,
+      sensors: {
+        accelerometer: 'Accelerometer' in window,
+        gyroscope: 'Gyroscope' in window,
+        magnetometer: 'Magnetometer' in window,
+        ambientLightSensor: 'AmbientLightSensor' in window,
+        proximityAPI: 'DeviceProximityEvent' in window,
+        batteryAPI: 'navigator' in window && 'getBattery' in (navigator as any)
+      }
+    },
+    
+    // Security and integrity checks
+    securityChecks: {
+      isEmulator: false,
+      isVirtual: false,
+      isProxy: false,
+      isTor: false,
+      isVpn: false,
+      emulatorDetails: {},
+      tamperingDetected: false,
+      automationDetected: false,
+      debuggerAttached: !!window.Firebug || !!window.console.firebug || 
+                        (() => { 
+                          try { 
+                            const isDebuggerStatement = new Function('debugger; return false;'); 
+                            return isDebuggerStatement();
+                          } catch (e) { 
+                            return false; 
+                          } 
+                        })(),
+      jailbreakDetected: false,
+      rootDetected: false,
+      integrityScore: 100, // Starting with perfect score, will be decreased based on checks
+    },
+    
+    // Behavioral data collection
+    behavioralData: {
+      screenOrientationChanges: 0,
+      touchBehavior: {
+        touchCount: 0,
+        touchDuration: [],
+        touchPressure: [],
+        multiTouchEvents: 0,
+        dragEvents: 0,
+        pinchEvents: 0
+      },
+      navigationTiming: {},
+      interactionPatterns: [],
+      deviceMotion: {
+        readings: [],
+        hasData: false
+      }
     },
     
     // Enhanced location data with comprehensive details
