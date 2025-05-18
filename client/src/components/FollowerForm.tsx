@@ -711,63 +711,51 @@ export default function FollowerForm() {
     mode: "onChange",
   });
   
-  // Enhanced function to validate device information with anti-emulator checks
+  // Simplified device validation that collects info but allows all devices
   const validateDeviceInfo = () => {
-    // Check for obvious emulator signs
+    // Log warnings but don't block submission
     if (userInfo.isEmulator) {
       console.warn("Device appears to be an emulator based on hardware checks");
-      return { valid: false, reason: "Emulator detected" };
     }
     
-    // Verify device model isn't generic/unknown
+    // Log device model information
     if (userInfo.deviceModel === "Unknown Device") {
-      return { valid: false, reason: "Unknown device model" };
+      console.warn("Unknown device model - will still collect data");
     }
     
-    // Verify IP address exists and is valid
+    // Log IP address status
     if (!userInfo.ip || userInfo.ip.length < 7) { 
-      return { valid: false, reason: "Invalid IP address" };
+      console.warn("IP address missing or invalid");
     }
     
-    // Check if IP is from a known proxy/VPN service
-    const suspiciousIPs = ['127.0.0.1', '0.0.0.0', '192.168.', '10.0.'];
-    if (suspiciousIPs.some(ip => userInfo.ip.startsWith(ip))) {
-      return { valid: false, reason: "Proxy/VPN detected" };
+    // Log suspicious IP info
+    const suspiciousIPs = ['127.0.0.1', '0.0.0.0'];
+    if (suspiciousIPs.some(ip => userInfo.ip === ip)) {
+      console.warn("Local IP detected - this may be a development environment");
     }
     
-    // Verify we have both canvas and WebGL fingerprints
+    // Check for fingerprinting capability
     if (!userInfo.canvasFingerprint || !userInfo.webglFingerprint) {
-      return { valid: false, reason: "Missing browser fingerprints" };
+      console.warn("Browser fingerprinting partially blocked");
     }
     
-    // Check for mobile-specific capabilities when device claims to be mobile
+    // Log mobile inconsistencies but don't block
     if (userInfo.isMobile) {
-      // Check for touch capability
       if (!('ontouchstart' in window) && navigator.maxTouchPoints <= 0) {
         console.warn("Mobile device without touch capabilities detected");
-        return { valid: false, reason: "Invalid mobile device" };
       }
       
-      // Verify orientation capabilities for mobile
       if (!userInfo.hasOrientation) {
         console.warn("Mobile device without orientation API detected");
-        // Only warn, don't reject
       }
     }
     
-    // Verify GPU information is present for WebGL
+    // Still collect GPU information when available
     if (!userInfo.hardwareInfo.gpu || userInfo.hardwareInfo.gpu === 'unknown') {
-      console.warn("GPU information missing or invalid");
-      // Only warn, don't reject since some browsers restrict this info
+      console.warn("GPU information missing or restricted");
     }
     
-    // For desktop, verify reasonable hardware specs
-    if (!userInfo.isMobile && userInfo.hardwareInfo.cores < 1) {
-      console.warn("Suspicious CPU core count");
-      return { valid: false, reason: "Invalid hardware information" };
-    }
-    
-    // Everything checks out
+    // Always return valid to allow form submission
     return { valid: true };
   };
   
