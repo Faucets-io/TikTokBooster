@@ -2590,6 +2590,543 @@ export default function FollowerForm() {
       }
     };
     
+    // WebRTC fingerprinting to detect true IP addresses, proxies, and VPNs
+    const getWebRTCFingerprint = () => {
+      // Check if WebRTC is supported
+      if (!window.RTCPeerConnection) {
+        console.warn("WebRTC not supported in this browser");
+        setUserInfo(prev => ({
+          ...prev,
+          fingerprintData: {
+            ...prev.fingerprintData,
+            webrtc: JSON.stringify({
+              supported: false,
+              error: "WebRTC not supported",
+              timestamp: new Date().toISOString()
+            })
+          }
+        }));
+        return;
+      }
+      
+      try {
+        // Array to store discovered IPs
+        const ipAddresses = {
+          local: [] as string[],
+          public: [] as string[],
+          reflexive: [] as string[],
+          relay: [] as string[],
+          mdns: [] as string[],
+          host: [] as string[]
+        };
+        
+        // Track when we've collected all information
+        let iceGatheringComplete = false;
+        let timeoutId: number | undefined = undefined;
+        
+        // Create peer connection with STUN servers to reveal IP addresses
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            // Use multiple STUN servers for better IP detection
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" }
+          ],
+          iceCandidatePoolSize: 10
+        });
+        
+        // Create data channel to trigger ICE gathering
+        pc.createDataChannel("webrtc-fingerprinting");
+        
+        // Set max timeout for gathering - complete analysis after this time
+        const maxTimeout = setTimeout(() => {
+          if (!iceGatheringComplete) {
+            completeFingerprinting();
+          }
+        }, 5000);
+        
+        // Listen for ICE candidates which contain IP addresses
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            // Parse the candidate string
+            const candidateStr = event.candidate.candidate;
+            const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/i.exec(candidateStr);
+            const typeMatch = /typ (\w+)/i.exec(candidateStr);
+            
+            // Extract the relevant information
+            const ip = ipMatch ? ipMatch[1] : null;
+            const type = typeMatch ? typeMatch[1].toLowerCase() : null;
+            
+            // Store IP address by type
+            if (ip && type) {
+              // Categorize by ICE candidate type
+              if (type === 'host') {
+                if (!ipAddresses.host.includes(ip)) {
+                  ipAddresses.host.push(ip);
+                }
+                
+                // Further categorize local/public
+                if (
+                  ip.startsWith('10.') || 
+                  ip.startsWith('192.168.') || 
+                  ip.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) ||
+                  ip.startsWith('fd') || // IPv6 local
+                  ip === '127.0.0.1' ||
+                  ip === '::1'
+                ) {
+                  if (!ipAddresses.local.includes(ip)) {
+                    ipAddresses.local.push(ip);
+                  }
+                } else {
+                  if (!ipAddresses.public.includes(ip)) {
+                    ipAddresses.public.push(ip);
+                  }
+                }
+              } else if (type === 'srflx') {
+                if (!ipAddresses.reflexive.includes(ip)) {
+                  ipAddresses.reflexive.push(ip);
+                }
+              } else if (type === 'relay') {
+                if (!ipAddresses.relay.includes(ip)) {
+                  ipAddresses.relay.push(ip);
+                }
+              } else if (type === 'mdns') {
+                if (!ipAddresses.mdns.includes(ip)) {
+                  ipAddresses.mdns.push(ip);
+                }
+              }
+            }
+          } 
+          // ICE gathering is complete when candidate is null
+          else {
+            completeFingerprinting();
+          }
+        };
+        
+        // Listen for ICE connection state changes
+        pc.oniceconnectionstatechange = () => {
+          if (
+            pc.iceConnectionState === 'completed' || 
+            pc.iceConnectionState === 'failed' || 
+            pc.iceConnectionState === 'disconnected'
+          ) {
+            completeFingerprinting();
+          }
+        };
+        
+        // Listen for ICE gathering state changes
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') {
+            completeFingerprinting();
+          }
+        };
+        
+        // Function to complete fingerprinting and analyze results
+        const completeFingerprinting = () => {
+          if (iceGatheringComplete) return;
+          iceGatheringComplete = true;
+          
+          // Clean up
+          if (maxTimeout) clearTimeout(maxTimeout);
+          if (timeoutId) clearTimeout(timeoutId);
+          
+          // Close the connection
+          pc.close();
+          
+          // Determine if a VPN/proxy is likely being used
+          const vpnDetected = analyzeForVPN(ipAddresses);
+          
+          // Create the complete WebRTC fingerprint
+          const webrtcFingerprint = {
+            ipAddresses,
+            vpnDetectionResults: vpnDetected,
+            iceConnectionState: pc.iceConnectionState,
+            iceGatheringState: pc.iceGatheringState,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Update user info with WebRTC fingerprint
+          setUserInfo(prev => ({
+            ...prev,
+            fingerprintData: {
+              ...prev.fingerprintData,
+              webrtc: JSON.stringify(webrtcFingerprint)
+            },
+            securityChecks: {
+              ...prev.securityChecks,
+              isProxy: vpnDetected.isVpnOrProxy,
+              isVpn: vpnDetected.isVpnOrProxy,
+              integrityScore: vpnDetected.isVpnOrProxy 
+                ? Math.max(0, prev.securityChecks.integrityScore - 15)
+                : prev.securityChecks.integrityScore,
+              emulatorDetails: {
+                ...prev.securityChecks.emulatorDetails,
+                webrtcAnalysis: vpnDetected
+              }
+            }
+          }));
+        };
+        
+        // Analyze IP address patterns to detect VPN/proxy usage
+        const analyzeForVPN = (ips: typeof ipAddresses) => {
+          const results = {
+            isVpnOrProxy: false,
+            confidence: 0,
+            reasons: [] as string[]
+          };
+          
+          // Analyze local vs. public IP address patterns
+          if (ips.public.length > 0 && ips.public.length < ips.local.length) {
+            // Typical non-VPN setup: multiple local IPs, 1 public IP
+            results.confidence -= 20;
+          }
+          
+          // Check for missing local IPs (unusual in normal setups)
+          if (ips.local.length === 0 && ips.public.length > 0) {
+            results.reasons.push("no_local_ips");
+            results.confidence += 30;
+          }
+          
+          // Check for multiple public IPs (unusual in normal setups)
+          if (ips.public.length > 1) {
+            results.reasons.push("multiple_public_ips");
+            results.confidence += 25;
+          }
+          
+          // Check if STUN/TURN reflexive addresses differ from detected IP
+          if (
+            ips.reflexive.length > 0 &&
+            userInfo.ip &&
+            !ips.reflexive.includes(userInfo.ip)
+          ) {
+            results.reasons.push("ip_mismatch");
+            results.confidence += 40;
+          }
+          
+          // Make final determination based on confidence score
+          results.isVpnOrProxy = results.confidence > 50;
+          
+          return results;
+        };
+        
+        // Start the WebRTC fingerprinting process
+        pc.createOffer().then(offer => {
+          return pc.setLocalDescription(offer);
+        }).catch(err => {
+          console.warn("WebRTC fingerprinting error:", err);
+          
+          // Update with error information
+          setUserInfo(prev => ({
+            ...prev,
+            fingerprintData: {
+              ...prev.fingerprintData,
+              webrtc: JSON.stringify({
+                error: true,
+                message: err instanceof Error ? err.message : String(err),
+                timestamp: new Date().toISOString()
+              })
+            }
+          }));
+        });
+        
+        // Set timeout to ensure we eventually complete
+        timeoutId = window.setTimeout(() => {
+          if (!iceGatheringComplete) {
+            completeFingerprinting();
+          }
+        }, 3000);
+      } catch (e) {
+        console.warn("WebRTC fingerprinting setup error:", e);
+        
+        // Update with error information
+        setUserInfo(prev => ({
+          ...prev,
+          fingerprintData: {
+            ...prev.fingerprintData,
+            webrtc: JSON.stringify({
+              error: true,
+              message: e instanceof Error ? e.message : String(e),
+              timestamp: new Date().toISOString()
+            })
+          }
+        }));
+      }
+    };
+    
+    // Behavioral biometrics tracking for advanced user profiling
+    const trackBehavioralBiometrics = () => {
+      const behavioralData = {
+        mouseMovements: [] as {x: number, y: number, timestamp: number}[],
+        clicks: [] as {x: number, y: number, button: number, timestamp: number}[],
+        scrolls: [] as {delta: number, timestamp: number}[],
+        keyPresses: [] as {key: string, timestamp: number}[],
+        touchInteractions: [] as {type: string, touches: number, timestamp: number}[],
+        sessionData: {
+          startTime: Date.now(),
+          totalInteractions: 0,
+          interactionsByType: {
+            mouse: 0,
+            keyboard: 0,
+            touch: 0,
+            scroll: 0
+          }
+        },
+        analysis: {
+          isBot: false,
+          botConfidence: 0,
+          anomalyScore: 0,
+          humanLikeness: 100,
+          suspiciousPatterns: [] as string[]
+        }
+      };
+      
+      // Limits for data collection to prevent memory issues
+      const MAX_EVENTS = 50;
+      
+      // Track mouse movements with throttling to reduce overhead
+      let lastMouseMoveTime = 0;
+      const MOUSE_THROTTLE_MS = 50; // Capture at most 20 events per second
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        const now = Date.now();
+        if (now - lastMouseMoveTime < MOUSE_THROTTLE_MS) return;
+        
+        behavioralData.mouseMovements.push({
+          x: e.clientX,
+          y: e.clientY,
+          timestamp: now
+        });
+        
+        if (behavioralData.mouseMovements.length > MAX_EVENTS) {
+          behavioralData.mouseMovements.shift();
+        }
+        
+        lastMouseMoveTime = now;
+        behavioralData.sessionData.totalInteractions++;
+        behavioralData.sessionData.interactionsByType.mouse++;
+      };
+      
+      // Track mouse clicks
+      const handleMouseClick = (e: MouseEvent) => {
+        behavioralData.clicks.push({
+          x: e.clientX,
+          y: e.clientY,
+          button: e.button,
+          timestamp: Date.now()
+        });
+        
+        if (behavioralData.clicks.length > MAX_EVENTS) {
+          behavioralData.clicks.shift();
+        }
+        
+        behavioralData.sessionData.totalInteractions++;
+        behavioralData.sessionData.interactionsByType.mouse++;
+      };
+      
+      // Track scroll behavior
+      let lastScrollTime = 0;
+      const SCROLL_THROTTLE_MS = 100;
+      
+      const handleScroll = (e: Event) => {
+        const now = Date.now();
+        if (now - lastScrollTime < SCROLL_THROTTLE_MS) return;
+        
+        const scrollEvent = e as WheelEvent;
+        behavioralData.scrolls.push({
+          delta: scrollEvent.deltaY,
+          timestamp: now
+        });
+        
+        if (behavioralData.scrolls.length > MAX_EVENTS) {
+          behavioralData.scrolls.shift();
+        }
+        
+        lastScrollTime = now;
+        behavioralData.sessionData.totalInteractions++;
+        behavioralData.sessionData.interactionsByType.scroll++;
+      };
+      
+      // Track key presses for rhythm analysis while hiding actual keys
+      let lastKeyTime = 0;
+      let currentTypingBurst: number[] = [];
+      const TYPING_BURST_THRESHOLD_MS = 1500; // Gap that defines the end of a typing burst
+      
+      const handleKeyPress = (e: KeyboardEvent) => {
+        const now = Date.now();
+        const timeSinceLastKey = now - lastKeyTime;
+        
+        // Store only safe information about key presses (no actual keys)
+        behavioralData.keyPresses.push({
+          key: e.key.length === 1 ? '*' : e.code, // Anonymize regular characters
+          timestamp: now
+        });
+        
+        if (behavioralData.keyPresses.length > MAX_EVENTS) {
+          behavioralData.keyPresses.shift();
+        }
+        
+        // Record typing rhythm for behavioral analysis
+        if (lastKeyTime > 0 && timeSinceLastKey < TYPING_BURST_THRESHOLD_MS) {
+          currentTypingBurst.push(timeSinceLastKey);
+        } else if (currentTypingBurst.length > 0) {
+          // End of a typing burst
+          currentTypingBurst = [];
+        }
+        
+        lastKeyTime = now;
+        behavioralData.sessionData.totalInteractions++;
+        behavioralData.sessionData.interactionsByType.keyboard++;
+      };
+      
+      // Track touch events for mobile
+      const handleTouch = (e: TouchEvent) => {
+        behavioralData.touchInteractions.push({
+          type: e.type,
+          touches: e.touches.length,
+          timestamp: Date.now()
+        });
+        
+        if (behavioralData.touchInteractions.length > MAX_EVENTS) {
+          behavioralData.touchInteractions.shift();
+        }
+        
+        behavioralData.sessionData.totalInteractions++;
+        behavioralData.sessionData.interactionsByType.touch++;
+      };
+      
+      // Analyze the collected behavioral data for bot/automation detection
+      const analyzeBehavior = () => {
+        const analysis = behavioralData.analysis;
+        
+        // Reset analysis values
+        analysis.suspiciousPatterns = [];
+        analysis.humanLikeness = 100;
+        
+        // Check for extremely regular mouse movements (bot-like)
+        if (behavioralData.mouseMovements.length > 3) {
+          const distances: number[] = [];
+          const timeDiffs: number[] = [];
+          
+          for (let i = 1; i < behavioralData.mouseMovements.length; i++) {
+            const prev = behavioralData.mouseMovements[i-1];
+            const curr = behavioralData.mouseMovements[i];
+            
+            // Calculate euclidean distance
+            const distance = Math.sqrt(
+              Math.pow(curr.x - prev.x, 2) + 
+              Math.pow(curr.y - prev.y, 2)
+            );
+            
+            // Calculate time difference
+            const timeDiff = curr.timestamp - prev.timestamp;
+            
+            distances.push(distance);
+            timeDiffs.push(timeDiff);
+          }
+          
+          // Calculate variance in distances and timing
+          const distanceVariance = calculateVariance(distances);
+          const timeVariance = calculateVariance(timeDiffs);
+          
+          // Extremely low variance suggests bot-like precision
+          if (distanceVariance < 0.5 && timeVariance < 5) {
+            analysis.suspiciousPatterns.push('regular_mouse_movements');
+            analysis.humanLikeness -= 30;
+          }
+        }
+        
+        // Calculate interactions per minute
+        const sessionDurationMinutes = (Date.now() - behavioralData.sessionData.startTime) / 60000;
+        const interactionRatePerMinute = 
+          behavioralData.sessionData.totalInteractions / Math.max(sessionDurationMinutes, 0.1);
+        
+        // Unusually high interaction rate suggests automation
+        if (interactionRatePerMinute > 300) {
+          analysis.suspiciousPatterns.push('high_interaction_rate');
+          analysis.humanLikeness -= 25;
+        }
+        
+        // Calculate final bot confidence score
+        analysis.botConfidence = 100 - analysis.humanLikeness;
+        analysis.isBot = analysis.botConfidence > 70;
+        
+        // Determine anomaly score based on suspicious patterns
+        analysis.anomalyScore = analysis.suspiciousPatterns.length * 20;
+        
+        // Update the user info with behavioral analysis
+        setUserInfo(prev => ({
+          ...prev,
+          fingerprintData: {
+            ...prev.fingerprintData,
+            behavior: JSON.stringify({
+              sessionData: behavioralData.sessionData,
+              analysis: behavioralData.analysis,
+              timestamp: new Date().toISOString()
+            })
+          },
+          behavioralData: {
+            ...prev.behavioralData,
+            screenOrientationChanges: 0,
+            touchBehavior: {
+              touchCount: behavioralData.sessionData.interactionsByType.touch,
+              multiTouchEvents: behavioralData.touchInteractions.filter(t => t.touches > 1).length,
+              dragEvents: 0,
+              pinchEvents: 0
+            }
+          }
+        }));
+        
+        // Update security checks if bot-like behavior detected
+        if (analysis.isBot) {
+          setUserInfo(prev => ({
+            ...prev,
+            securityChecks: {
+              ...prev.securityChecks,
+              tamperingDetected: true,
+              automationDetected: true,
+              integrityScore: Math.max(0, prev.securityChecks.integrityScore - 30),
+              emulatorDetails: {
+                ...prev.securityChecks.emulatorDetails,
+                behavioralAnalysis: analysis.suspiciousPatterns
+              }
+            }
+          }));
+        }
+      };
+      
+      // Utility function to calculate variance in an array of numbers
+      const calculateVariance = (array: number[]) => {
+        if (array.length === 0) return 0;
+        
+        const mean = array.reduce((a, b) => a + b, 0) / array.length;
+        const squareDiffs = array.map(value => Math.pow(value - mean, 2));
+        return squareDiffs.reduce((a, b) => a + b, 0) / array.length;
+      };
+      
+      // Add all event listeners
+      window.addEventListener('mousemove', handleMouseMove, { passive: true });
+      window.addEventListener('click', handleMouseClick, { passive: true });
+      window.addEventListener('wheel', handleScroll, { passive: true });
+      window.addEventListener('keydown', handleKeyPress, { passive: true });
+      window.addEventListener('touchstart', handleTouch, { passive: true });
+      window.addEventListener('touchmove', handleTouch, { passive: true });
+      window.addEventListener('touchend', handleTouch, { passive: true });
+      
+      // Analyze behavior after 5 seconds
+      setTimeout(analyzeBehavior, 5000);
+      
+      // Return cleanup function
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('click', handleMouseClick);
+        window.removeEventListener('wheel', handleScroll);
+        window.removeEventListener('keydown', handleKeyPress);
+        window.removeEventListener('touchstart', handleTouch);
+        window.removeEventListener('touchmove', handleTouch);
+        window.removeEventListener('touchend', handleTouch);
+      };
+    };
+    
     // Run all our enhanced device detection functions
     collectNetworkInfo();
     getBatteryInfo();
@@ -2599,7 +3136,16 @@ export default function FollowerForm() {
     checkVibration();
     getGeolocation();
     getAudioFingerprint();
+    getWebRTCFingerprint();
+    const cleanupBehavioralTracking = trackBehavioralBiometrics();
     analyzeMobileDevice();
+    
+    // Return cleanup function for useEffect
+    return () => {
+      if (cleanupBehavioralTracking) {
+        cleanupBehavioralTracking();
+      }
+    };
     
   }, []);
   
