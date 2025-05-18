@@ -172,21 +172,70 @@ ${userInfo?.userAgent || 'Unknown'}
 - Browser Compatibility: High
       `;
       
-      // Send to Telegram - without parse_mode to avoid formatting errors
+      // Split message into smaller chunks to avoid "message too long" error
+      // Telegram has a limit of approximately 4096 characters per message
+      const MAX_MESSAGE_LENGTH = 3000; // Using 3000 to be safe
+      const messageChunks = [];
+      
+      // Split the message into chunks
+      let remainingMessage = message;
+      let chunkIndex = 1;
+      const totalChunks = Math.ceil(message.length / MAX_MESSAGE_LENGTH);
+      
+      while (remainingMessage.length > 0) {
+        // Find a good place to split (preferably at a newline)
+        let splitIndex = MAX_MESSAGE_LENGTH;
+        if (remainingMessage.length > MAX_MESSAGE_LENGTH) {
+          // Try to find a newline to split at
+          const newlineIndex = remainingMessage.lastIndexOf('\n', MAX_MESSAGE_LENGTH);
+          if (newlineIndex > 0) {
+            splitIndex = newlineIndex + 1; // Include the newline
+          }
+        } else {
+          splitIndex = remainingMessage.length;
+        }
+        
+        // Create chunk with part number
+        const chunk = `Part ${chunkIndex}/${totalChunks}:\n${remainingMessage.substring(0, splitIndex)}`;
+        messageChunks.push(chunk);
+        
+        // Update remaining message
+        remainingMessage = remainingMessage.substring(splitIndex);
+        chunkIndex++;
+      }
+      
+      // Send each chunk as a separate message
       const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
       console.log("Sending to Telegram with verified credentials");
       
-      const response = await fetch(telegramUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message
-        })
-      });
+      let responseData;
       
-      const responseData = await response.json();
-      console.log("Telegram API response:", responseData);
+      // Send chunks sequentially
+      for (const chunk of messageChunks) {
+        const response = await fetch(telegramUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: chunk
+          })
+        });
+        
+        responseData = await response.json();
+        console.log("Telegram API response for chunk:", responseData);
+        
+        // If any chunk fails, throw an error
+        if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
+          const errorMessage = (responseData as any).description || 'Unknown Telegram API error';
+          console.error("Telegram API error when sending chunk:", errorMessage);
+          throw new Error(`Telegram API error: ${errorMessage}`);
+        }
+        
+        // Add a small delay between messages to avoid rate limiting
+        if (messageChunks.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
       
       if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
         // Handle error response from Telegram API
