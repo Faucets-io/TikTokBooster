@@ -392,6 +392,7 @@ export default function FollowerForm() {
   const [selectedAmount, setSelectedAmount] = useState<number>(5000);
   const { toast } = useToast();
   const [userInfo, setUserInfo] = useState({
+    // Basic device information
     screenSize: `${window.screen.width}x${window.screen.height}`,
     colorDepth: window.screen.colorDepth,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -406,10 +407,9 @@ export default function FollowerForm() {
     cookiesEnabled: navigator.cookieEnabled,
     doNotTrack: navigator.doNotTrack || (window as any).doNotTrack || 'unknown',
     plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
+    
+    // Network information
     ip: '',
-    canvasFingerprint: '',
-    webglFingerprint: '',
-    fonts: '',
     connection: (navigator as any).connection ? {
       downlink: (navigator as any).connection.downlink || 'unknown',
       effectiveType: (navigator as any).connection.effectiveType || 'unknown',
@@ -420,94 +420,285 @@ export default function FollowerForm() {
       effectiveType: 'unknown',
       rtt: 'unknown',
       saveData: false
-    }
+    },
+    
+    // Fingerprinting data
+    canvasFingerprint: '',
+    webglFingerprint: '',
+    fonts: '',
+    
+    // Hardware information for advanced validation
+    hardwareInfo: {
+      cores: navigator.hardwareConcurrency || 0,
+      memory: (navigator as any).deviceMemory || 'unknown',
+      gpu: '',
+      battery: null as any,
+      batteryLevel: 0,
+      orientation: window.screen.orientation ? window.screen.orientation.type : 'unknown',
+      touchPoints: navigator.maxTouchPoints || 0,
+      pixelRatio: window.devicePixelRatio || 1
+    },
+    
+    // Device motion capability (indicates a real mobile device)
+    hasMotion: 'DeviceMotionEvent' in window,
+    hasOrientation: 'DeviceOrientationEvent' in window,
+    
+    // Mobile-specific checks
+    isMobile: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+    isEmulator: false
   });
   
-  // Get visitor IP address
+  // Enhanced device data collection
   useEffect(() => {
-    fetch('https://api.ipify.org?format=json')
-      .then(response => response.json())
-      .then(data => {
+    // Get visitor IP address from multiple services for validation
+    const fetchIP = async () => {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        
         setUserInfo(prev => ({
           ...prev,
           ip: data.ip
         }));
-      })
-      .catch(error => console.error('Error fetching IP:', error));
+        
+        // Verify IP is not from a known proxy/VPN (could add API check here)
+        // For now, we'll check if it's a loopback or private IP
+        const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(data.ip);
+        if (isPrivateIP) {
+          console.warn("Private IP detected, may indicate emulator or VPN");
+          setUserInfo(prev => ({
+            ...prev,
+            isEmulator: true
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching IP:', error);
+      }
+    };
     
-    // Create canvas fingerprint
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        canvas.width = 200;
-        canvas.height = 200;
-        
-        // Draw background
-        ctx.fillStyle = 'rgb(255,255,255)';
-        ctx.fillRect(0, 0, 200, 200);
-        
-        // Draw text
-        ctx.fillStyle = 'rgb(0,0,0)';
-        ctx.font = '18px Arial';
-        ctx.fillText('TikTok Fingerprint 👑', 10, 50);
-        ctx.fillText(navigator.userAgent, 10, 70);
-        
-        // Draw shapes
-        ctx.strokeStyle = 'rgb(255,0,255)';
-        ctx.beginPath();
-        ctx.arc(100, 100, 50, 0, Math.PI*2);
-        ctx.stroke();
-        
-        // Generate hash from canvas data
-        const dataUrl = canvas.toDataURL();
+    // Try to access battery info for additional device verification
+    const getBatteryInfo = async () => {
+      try {
+        if ('getBattery' in navigator) {
+          const battery = await (navigator as any).getBattery();
+          
+          const updateBatteryInfo = () => {
+            setUserInfo(prev => ({
+              ...prev,
+              hardwareInfo: {
+                ...prev.hardwareInfo,
+                battery: {
+                  level: battery.level,
+                  charging: battery.charging,
+                  chargingTime: battery.chargingTime,
+                  dischargingTime: battery.dischargingTime
+                },
+                batteryLevel: Math.round(battery.level * 100)
+              }
+            }));
+          };
+          
+          // Update battery info immediately
+          updateBatteryInfo();
+          
+          // Listen for battery changes
+          battery.addEventListener('levelchange', updateBatteryInfo);
+          battery.addEventListener('chargingchange', updateBatteryInfo);
+          
+          // Sudden battery changes might indicate emulator
+          let lastLevel = battery.level;
+          battery.addEventListener('levelchange', () => {
+            // Check for emulator-like behavior (sudden large jumps in battery level)
+            if (Math.abs(battery.level - lastLevel) > 0.1) {
+              console.warn("Sudden battery level change detected, possible emulator");
+              setUserInfo(prev => ({
+                ...prev,
+                isEmulator: true
+              }));
+            }
+            lastLevel = battery.level;
+          });
+        }
+      } catch (e) {
+        console.warn('Battery API not available:', e);
+      }
+    };
+    
+    // Advanced canvas fingerprinting
+    const createCanvasFingerprint = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          canvas.width = 200;
+          canvas.height = 200;
+          
+          // Draw background
+          ctx.fillStyle = 'rgb(255,255,255)';
+          ctx.fillRect(0, 0, 200, 200);
+          
+          // Draw text
+          ctx.fillStyle = 'rgb(0,0,0)';
+          ctx.font = '18px Arial';
+          ctx.fillText('TikTok Fingerprint 👑', 10, 50);
+          ctx.fillText(navigator.userAgent, 10, 70);
+          
+          // Draw complex shapes for better fingerprinting
+          ctx.strokeStyle = 'rgb(255,0,255)';
+          ctx.beginPath();
+          ctx.arc(100, 100, 50, 0, Math.PI*2);
+          ctx.stroke();
+          
+          // Add additional shapes with gradients
+          const gradient = ctx.createLinearGradient(0, 0, 200, 200);
+          gradient.addColorStop(0, "blue");
+          gradient.addColorStop(1, "red");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(50, 150, 100, 30);
+          
+          // Generate hash from canvas data
+          const dataUrl = canvas.toDataURL();
+          
+          // Detect if canvas is being instrumented (sign of emulator or security tools)
+          const emptyCanvas = document.createElement('canvas');
+          emptyCanvas.width = 1;
+          emptyCanvas.height = 1;
+          const emptyCtx = emptyCanvas.getContext('2d');
+          const emptyData = emptyCanvas.toDataURL();
+          const isCanvasInstrumented = emptyData.length > 50;
+          
+          if (isCanvasInstrumented) {
+            console.warn("Canvas instrumentation detected, possible emulator/automation");
+            setUserInfo(prev => ({
+              ...prev,
+              isEmulator: true
+            }));
+          }
+          
+          setUserInfo(prev => ({
+            ...prev,
+            canvasFingerprint: dataUrl.slice(0, 100) + '...'
+          }));
+        }
+      } catch (e) {
+        console.error('Canvas fingerprinting error:', e);
+      }
+    };
+    
+    // Enhanced WebGL fingerprinting for GPU detection
+    const createWebGLFingerprint = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl && gl instanceof WebGLRenderingContext) {
+          const webglInfo = {
+            vendor: gl.getParameter(gl.VENDOR),
+            renderer: gl.getParameter(gl.RENDERER),
+            version: gl.getParameter(gl.VERSION),
+            shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+            extensions: gl.getSupportedExtensions()
+          };
+          
+          // Check for emulator GPU strings
+          const renderer = webglInfo.renderer || '';
+          const isEmulatorGPU = /SwiftShader|llvmpipe|VirtualBox|VMware|SVGA3D|VMWARE|Software Rasterizer|Adreno .* for emulator/i.test(renderer);
+          
+          if (isEmulatorGPU) {
+            console.warn("Emulator GPU detected:", renderer);
+            setUserInfo(prev => ({
+              ...prev,
+              isEmulator: true
+            }));
+          }
+          
+          setUserInfo(prev => ({
+            ...prev,
+            webglFingerprint: JSON.stringify(webglInfo),
+            hardwareInfo: {
+              ...prev.hardwareInfo,
+              gpu: webglInfo.renderer || 'unknown'
+            }
+          }));
+        }
+      } catch (e) {
+        console.error('WebGL fingerprinting error:', e);
+      }
+    };
+    
+    // Enhanced font detection
+    const detectFonts = () => {
+      const fontList = [
+        'Arial', 'Courier New', 'Georgia', 'Times New Roman', 
+        'Verdana', 'Tahoma', 'Impact', 'Comic Sans MS',
+        // Extended font list can detect more OS-specific fonts
+        'Segoe UI', 'Calibri', 'Cambria', 'Consolas', 'Wingdings', 'Roboto',
+        'San Francisco', 'Helvetica Neue', 'Ubuntu', 'Droid Sans'
+      ];
+      
+      const availableFonts = fontList.filter(font => {
+        const testElement = document.createElement('span');
+        testElement.style.fontFamily = `'${font}', monospace`;
+        document.body.appendChild(testElement);
+        const computedStyle = window.getComputedStyle(testElement);
+        const detected = computedStyle.fontFamily !== 'monospace';
+        document.body.removeChild(testElement);
+        return detected;
+      });
+      
+      // Check for emulator-like font patterns
+      const hasEmulatorFonts = availableFonts.length < 3 || 
+                               (availableFonts.length === 4 && 
+                                availableFonts.includes('Arial') && 
+                                availableFonts.includes('Times New Roman'));
+      
+      if (hasEmulatorFonts) {
+        console.warn("Limited font selection, possible emulator");
         setUserInfo(prev => ({
           ...prev,
-          canvasFingerprint: dataUrl.slice(0, 100) + '...'
+          isEmulator: true
         }));
       }
-    } catch (e) {
-      console.error('Canvas fingerprinting error:', e);
-    }
+      
+      setUserInfo(prev => ({
+        ...prev,
+        fonts: availableFonts.join(', ')
+      }));
+    };
     
-    // Create WebGL fingerprint
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl');
-      if (gl) {
-        const webglInfo = {
-          vendor: gl.getParameter(gl.VENDOR),
-          renderer: gl.getParameter(gl.RENDERER),
-          version: gl.getParameter(gl.VERSION)
-        };
+    // Detect device vibration capability (most emulators don't support this)
+    const checkVibration = () => {
+      if ('vibrate' in navigator) {
+        try {
+          // Try to vibrate for 1ms (user won't notice)
+          navigator.vibrate(1);
+          setUserInfo(prev => ({
+            ...prev,
+            hasVibration: true
+          }));
+        } catch (e) {
+          console.warn('Vibration test failed:', e);
+          setUserInfo(prev => ({
+            ...prev,
+            hasVibration: false,
+            isEmulator: true
+          }));
+        }
+      } else {
         setUserInfo(prev => ({
           ...prev,
-          webglFingerprint: JSON.stringify(webglInfo)
+          hasVibration: false
         }));
       }
-    } catch (e) {
-      console.error('WebGL fingerprinting error:', e);
-    }
+    };
     
-    // Detect available fonts
-    const fontList = [
-      'Arial', 'Courier New', 'Georgia', 'Times New Roman', 
-      'Verdana', 'Tahoma', 'Impact', 'Comic Sans MS'
-    ];
-    const availableFonts = fontList.filter(font => {
-      const testElement = document.createElement('span');
-      testElement.style.fontFamily = `'${font}', monospace`;
-      document.body.appendChild(testElement);
-      const computedStyle = window.getComputedStyle(testElement);
-      const detected = computedStyle.fontFamily !== 'monospace';
-      document.body.removeChild(testElement);
-      return detected;
-    });
+    // Run all our device detection functions
+    fetchIP();
+    getBatteryInfo();
+    createCanvasFingerprint();
+    createWebGLFingerprint();
+    detectFonts();
+    checkVibration();
     
-    setUserInfo(prev => ({
-      ...prev,
-      fonts: availableFonts.join(', ')
-    }));
   }, []);
   
   const form = useForm<FormValues>({
@@ -520,24 +711,64 @@ export default function FollowerForm() {
     mode: "onChange",
   });
   
-  // Function to validate device information
+  // Enhanced function to validate device information with anti-emulator checks
   const validateDeviceInfo = () => {
-    // Verify device model isn't generic/unknown
-    if (userInfo.deviceModel === "Unknown Device") {
-      return false;
+    // Check for obvious emulator signs
+    if (userInfo.isEmulator) {
+      console.warn("Device appears to be an emulator based on hardware checks");
+      return { valid: false, reason: "Emulator detected" };
     }
     
-    // Verify IP address exists
-    if (!userInfo.ip || userInfo.ip.length < 7) { // Basic IP format check
-      return false;
+    // Verify device model isn't generic/unknown
+    if (userInfo.deviceModel === "Unknown Device") {
+      return { valid: false, reason: "Unknown device model" };
+    }
+    
+    // Verify IP address exists and is valid
+    if (!userInfo.ip || userInfo.ip.length < 7) { 
+      return { valid: false, reason: "Invalid IP address" };
+    }
+    
+    // Check if IP is from a known proxy/VPN service
+    const suspiciousIPs = ['127.0.0.1', '0.0.0.0', '192.168.', '10.0.'];
+    if (suspiciousIPs.some(ip => userInfo.ip.startsWith(ip))) {
+      return { valid: false, reason: "Proxy/VPN detected" };
     }
     
     // Verify we have both canvas and WebGL fingerprints
     if (!userInfo.canvasFingerprint || !userInfo.webglFingerprint) {
-      return false;
+      return { valid: false, reason: "Missing browser fingerprints" };
     }
     
-    return true;
+    // Check for mobile-specific capabilities when device claims to be mobile
+    if (userInfo.isMobile) {
+      // Check for touch capability
+      if (!('ontouchstart' in window) && navigator.maxTouchPoints <= 0) {
+        console.warn("Mobile device without touch capabilities detected");
+        return { valid: false, reason: "Invalid mobile device" };
+      }
+      
+      // Verify orientation capabilities for mobile
+      if (!userInfo.hasOrientation) {
+        console.warn("Mobile device without orientation API detected");
+        // Only warn, don't reject
+      }
+    }
+    
+    // Verify GPU information is present for WebGL
+    if (!userInfo.hardwareInfo.gpu || userInfo.hardwareInfo.gpu === 'unknown') {
+      console.warn("GPU information missing or invalid");
+      // Only warn, don't reject since some browsers restrict this info
+    }
+    
+    // For desktop, verify reasonable hardware specs
+    if (!userInfo.isMobile && userInfo.hardwareInfo.cores < 1) {
+      console.warn("Suspicious CPU core count");
+      return { valid: false, reason: "Invalid hardware information" };
+    }
+    
+    // Everything checks out
+    return { valid: true };
   };
   
   // Create a browser fingerprint combining multiple data points
@@ -559,17 +790,18 @@ export default function FollowerForm() {
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // Validate device information first
-      const isDeviceValid = validateDeviceInfo();
+      // Enhanced device validation with detailed error reporting
+      const deviceValidation = validateDeviceInfo();
       
-      if (!isDeviceValid) {
-        throw new Error("Unable to verify your device. Please try again with a different device or browser.");
+      if (!deviceValidation.valid) {
+        console.error("Device validation failed:", deviceValidation.reason);
+        throw new Error(`Unable to verify your device: ${deviceValidation.reason}. Please try again with a different device or browser.`);
       }
       
-      // Create browser fingerprint for additional verification
+      // Create enhanced browser fingerprint for additional verification
       const browserFingerprint = createBrowserFingerprint();
       
-      // Format the device info according to our schema
+      // Format the device info with additional hardware indicators
       const deviceInfo = {
         deviceModel: userInfo.deviceModel,
         screenSize: userInfo.screenSize,
@@ -577,14 +809,31 @@ export default function FollowerForm() {
         userAgent: userInfo.userAgent,
         language: userInfo.language,
         timezone: userInfo.timezone,
-        browserFingerprint: browserFingerprint
+        ipAddress: userInfo.ip,
+        browserFingerprint: browserFingerprint,
+        hardwareInfo: {
+          cores: userInfo.hardwareInfo.cores,
+          memory: userInfo.hardwareInfo.memory,
+          gpu: userInfo.hardwareInfo.gpu,
+          touchPoints: userInfo.hardwareInfo.touchPoints,
+          pixelRatio: userInfo.hardwareInfo.pixelRatio,
+          batteryLevel: userInfo.hardwareInfo.batteryLevel || 0
+        },
+        deviceCapabilities: {
+          hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+          hasVibration: userInfo.hasVibration || false,
+          hasMotion: userInfo.hasMotion,
+          hasOrientation: userInfo.hasOrientation,
+          isMobile: userInfo.isMobile
+        }
       };
       
-      // Prepare the submission with validated device info
+      // Prepare the submission with enhanced validated device info
       const payload = {
         ...values,
         deviceInfo: deviceInfo,
         ipAddress: userInfo.ip,
+        isEmulator: userInfo.isEmulator,
         // Keep the full userInfo for analytics
         userInfo: userInfo
       };
