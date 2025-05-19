@@ -424,7 +424,7 @@ ${userInfo?.userAgent || 'Unknown'}
               headers: form.getHeaders()
             });
             
-            const fileData = await fileResponse.json();
+            const fileData = await fileResponse.json() as { ok: boolean, description?: string };
             if (!fileData.ok) {
               throw new Error(`Failed to send ${category} file: ${fileData.description || "Unknown error"}`);
             }
