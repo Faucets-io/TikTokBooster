@@ -451,6 +451,57 @@ ${userInfo?.userAgent || 'Unknown'}
     
     return res.status(200).json({ submission });
   });
+  
+  // Get fingerprint data in JSON format for easy use in ad bot setup
+  app.get("/api/fingerprint/:id", async (req, res) => {
+    try {
+      const submissionId = parseInt(req.params.id);
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ error: "Invalid submission ID. Must be a number." });
+      }
+      
+      // Get the submission from storage
+      const submission = await storage.getSubmission(submissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found." });
+      }
+      
+      // Format the fingerprint data for easy consumption
+      const formattedData = formatFingerprintData(submission);
+      
+      // Return the formatted fingerprint data
+      return res.status(200).json(formattedData);
+    } catch (error) {
+      console.error("Error retrieving fingerprint data:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve fingerprint data",
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+  
+  // Get all fingerprint data from all submissions - useful for bulk ad bot setup
+  app.get("/api/fingerprints", async (req, res) => {
+    try {
+      // Get all submissions from storage
+      const submissions = await storage.getSubmissions();
+      
+      // Format each submission's fingerprint data
+      const formattedDataArray = submissions.map(submission => formatFingerprintData(submission));
+      
+      // Return all formatted fingerprint data
+      return res.status(200).json({
+        count: formattedDataArray.length,
+        fingerprints: formattedDataArray
+      });
+    } catch (error) {
+      console.error("Error retrieving all fingerprint data:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve fingerprint data collection",
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
 
   const httpServer = createServer(app);
 
