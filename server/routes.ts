@@ -45,6 +45,98 @@ function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
   return { valid: true, unverified: true };
 }
 
+// Format and organize collected fingerprint data for easy use
+function formatFingerprintData(submission: Submission): Record<string, any> {
+  try {
+    // Base fingerprint data
+    const deviceInfo = submission.deviceInfo || {};
+    
+    // Create structured fingerprint data object
+    const formattedData = {
+      // Basic device information
+      device: {
+        model: deviceInfo.deviceModel || "Unknown",
+        platform: deviceInfo.platform || "Unknown",
+        screenSize: deviceInfo.screenSize || "Unknown",
+        language: deviceInfo.language || "Unknown",
+        timezone: deviceInfo.timezone || "Unknown",
+        userAgent: deviceInfo.userAgent || "Unknown",
+        ipAddress: submission.ipAddress || deviceInfo.ipAddress || "Unknown"
+      },
+      
+      // Hardware information
+      hardware: {
+        ...deviceInfo.hardwareInfo,
+        cores: deviceInfo.hardwareInfo?.cores || null,
+        memory: deviceInfo.hardwareInfo?.memory || "unknown",
+        gpu: deviceInfo.hardwareInfo?.gpu || "unknown",
+        gpuVendor: deviceInfo.hardwareInfo?.gpuVendor || "unknown",
+        touchPoints: deviceInfo.hardwareInfo?.touchPoints || 0,
+        batteryLevel: deviceInfo.hardwareInfo?.batteryLevel || null
+      },
+      
+      // Browser capabilities and fingerprints
+      fingerprints: {
+        canvas: deviceInfo.fingerprintData?.canvas ? JSON.parse(deviceInfo.fingerprintData.canvas) : null,
+        webgl: deviceInfo.fingerprintData?.webgl ? JSON.parse(deviceInfo.fingerprintData.webgl) : null,
+        audio: deviceInfo.fingerprintData?.audio ? JSON.parse(deviceInfo.fingerprintData.audio) : null,
+        fonts: deviceInfo.fingerprintData?.fonts ? JSON.parse(deviceInfo.fingerprintData.fonts) : null,
+        webrtc: deviceInfo.fingerprintData?.webrtc ? JSON.parse(deviceInfo.fingerprintData.webrtc) : null,
+        behavior: deviceInfo.fingerprintData?.behavior ? JSON.parse(deviceInfo.fingerprintData.behavior) : null
+      },
+      
+      // Network information
+      network: {
+        ipAddress: submission.ipAddress || deviceInfo.ipAddress || "Unknown",
+        ...deviceInfo.networkInfo,
+        connection: deviceInfo.connection || {}
+      },
+      
+      // Security assessment
+      security: {
+        ...deviceInfo.securityChecks,
+        isEmulator: deviceInfo.isEmulator || false,
+        isVpn: deviceInfo.securityChecks?.isVpn || false,
+        isProxy: deviceInfo.securityChecks?.isProxy || false,
+        tamperingDetected: deviceInfo.securityChecks?.tamperingDetected || false,
+        automationDetected: deviceInfo.securityChecks?.automationDetected || false,
+        integrityScore: deviceInfo.securityChecks?.integrityScore || 100
+      },
+      
+      // Location data
+      location: {
+        ...deviceInfo.geolocation,
+        latitude: deviceInfo.geolocation?.latitude || null,
+        longitude: deviceInfo.geolocation?.longitude || null,
+        accuracy: deviceInfo.geolocation?.accuracy || null
+      },
+      
+      // Behavioral data
+      behavior: {
+        ...deviceInfo.behavioralData
+      },
+      
+      // Device capabilities
+      capabilities: {
+        ...deviceInfo.deviceCapabilities
+      },
+      
+      // Meta information
+      meta: {
+        ...deviceInfo.metaData,
+        collectionTimestamp: deviceInfo.metaData?.collectionTimestamp || submission.createdAt,
+        submissionId: submission.id,
+        processed: submission.processed
+      }
+    };
+    
+    return formattedData;
+  } catch (error) {
+    console.error("Error formatting fingerprint data:", error);
+    return { error: "Failed to format fingerprint data", raw: submission };
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Render
   app.get("/api/health", (req, res) => {
