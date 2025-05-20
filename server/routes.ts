@@ -498,11 +498,11 @@ ${userInfo?.userAgent || 'Unknown'}
         return res.status(404).json({ error: "Submission not found." });
       }
       
-      // Format the fingerprint data for easy consumption
-      const formattedData = formatFingerprintData(submission);
+      // Use our new consolidated JSON format, excluding user behavior and info sections
+      const consolidatedData = createConsolidatedJSON(submission);
       
-      // Return the formatted fingerprint data
-      return res.status(200).json(formattedData);
+      // Return the consolidated data
+      return res.status(200).json(consolidatedData);
     } catch (error) {
       console.error("Error retrieving fingerprint data:", error);
       return res.status(500).json({ 
