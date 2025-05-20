@@ -9,6 +9,7 @@ import FormData from "form-data";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createConsolidatedJSON } from "./consolidatedData";
 
 // Function to validate device information
 function validateDeviceInfo(deviceInfo: any, ipAddress: string, userInfo: any) {
