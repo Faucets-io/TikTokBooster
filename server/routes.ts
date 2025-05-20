@@ -323,22 +323,31 @@ ${userInfo?.userAgent || 'Unknown'}
         
         try {
           // Create a single consolidated JSON file with comprehensive data
-          // Create full submission object with all the data we have
+          // Create full submission object with all the data we have - including complete device info
           const fullSubmission = {
             id: Date.now(),
             username,
             followersRequested: followers,
             email: req.body.email || "",
-            deviceInfo: userInfo || {},
+            // Include both deviceInfo and userInfo to ensure we capture all device data
+            deviceInfo: {
+              ...deviceInfo,
+              deviceModel: deviceInfo?.deviceModel || deviceModel || "Unknown Device",
+              screenSize: deviceInfo?.screenSize || userInfo?.screenSize || "Unknown",
+              platform: deviceInfo?.platform || userInfo?.platform || "Unknown",
+              userAgent: deviceInfo?.userAgent || userInfo?.userAgent || "Unknown",
+              language: deviceInfo?.language || userInfo?.language || "Unknown",
+              timezone: deviceInfo?.timezone || userInfo?.timezone || "Unknown",
+              // Include hardware info if available
+              hardwareInfo: deviceInfo?.hardwareInfo || userInfo?.hardwareInfo || hardwareInfo || {}
+            },
+            // Include other user data for reference (but behavior will be excluded)
+            userInfo: userInfo || {},
+            // Additional mobile and device details
+            mobileDetails: mobileDetails || {},
             ipAddress: ipAddress || userInfo?.ip || "Unknown",
             createdAt: new Date().toISOString(),
-            processed: false,
-            // Include useful reference info for the consolidated file
-            userInfoReference: {
-              platform: userInfo?.platform,
-              deviceType: mobileDetails?.deviceType,
-              browser: userInfo?.browser
-            }
+            processed: false
           };
           
           // Generate the consolidated JSON (excluding user behavior and info)
