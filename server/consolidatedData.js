@@ -12,16 +12,22 @@ export function createConsolidatedJSON(submission) {
 
     // Get relevant info from submission data
     const userInfo = submission.userInfo || {};
-    const mobileDetails = userInfo.mobileDetails || {};
+    const mobileDetails = submission.mobileDetails || userInfo.mobileDetails || {};
     const ipDetails = userInfo.ipDetails || {};
     const geolocation = userInfo.geolocation || {};
-    const hardwareInfo = userInfo.hardwareInfo || {};
+    // Get hardware info from multiple possible sources
+    const hardwareInfo = deviceInfo.hardwareInfo || userInfo.hardwareInfo || {};
     const geolocationDetails = geolocation.locationDetails || geolocation.address || {};
     const geoSource = geolocation.source || 'unknown';
     const geoAccuracy = geolocation.accuracy ? `${geolocation.accuracy}m` : 'Unknown';
     const sensors = hardwareInfo.sensors || {};
     const deviceCapabilities = userInfo.deviceCapabilities || {};
+    // Ensure we have the device model from any available source
     const deviceModel = deviceInfo.deviceModel || userInfo.deviceModel || 'Unknown Device';
+    
+    // Add debug logging
+    console.log("Device model used in JSON:", deviceModel);
+    console.log("Hardware info available:", Object.keys(hardwareInfo).length > 0 ? "Yes" : "No");
 
     // Create consolidated JSON data structure
     const consolidatedData = {
