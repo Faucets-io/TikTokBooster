@@ -16,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const message = `
 🚀 New Order Received!
-👤 User: @${order.username}
+👤 Link: ${order.link}
 🛠️ Service: ${order.service}
 📊 Quantity: ${order.quantity.toLocaleString()}
 💰 Amount: ₦${order.totalAmount.toLocaleString()}

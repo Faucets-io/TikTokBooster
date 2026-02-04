@@ -22,7 +22,7 @@ export class MemStorage implements IStorage {
     const id = this.currentId++;
     const newOrder: Order = { 
       id,
-      username: order.username,
+      link: order.link,
       service: order.service,
       quantity: order.quantity,
       totalAmount: order.totalAmount,
