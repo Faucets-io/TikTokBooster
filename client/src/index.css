@@ -1,3 +1,14 @@
+/* Hide Replit branding */
+iframe[src*="replit.com"],
+[class*="replit"],
+#replit-badge,
+.replit-badge,
+#replit-dev-banner {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
