@@ -93,13 +93,15 @@ export default function OrderForm() {
     }
   };
 
+  const MIN_AMOUNT = 500;
+
   const onSubmit = async (data: InsertOrder) => {
     if (step === 1) {
-      if (data.totalAmount < 500) {
+      if (data.totalAmount < MIN_AMOUNT) {
         toast({ 
           variant: "destructive", 
           title: "Minimum Amount", 
-          description: "Minimum order amount is ₦500. Please increase quantity." 
+          description: `Minimum order amount is ₦${MIN_AMOUNT.toLocaleString()}. Please increase quantity.` 
         });
         return;
       }
@@ -289,7 +291,7 @@ export default function OrderForm() {
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Transfer Amount</p>
+                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em] ml-1">Transfer Amount</p>
                       <p className="font-black text-[#FE2C55] text-2xl tracking-tight">₦{form.getValues("totalAmount").toLocaleString()}</p>
                     </div>
 
