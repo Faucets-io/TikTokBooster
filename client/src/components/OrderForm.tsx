@@ -95,11 +95,11 @@ export default function OrderForm() {
 
   const onSubmit = async (data: InsertOrder) => {
     if (step === 1) {
-      if (data.totalAmount < 500) {
+      if (data.totalAmount < 1000) {
         toast({ 
           variant: "destructive", 
           title: "Minimum Amount", 
-          description: "Minimum order amount is ₦500. Please increase quantity." 
+          description: "Minimum order amount is ₦1,000. Please increase quantity." 
         });
         return;
       }
@@ -282,10 +282,15 @@ export default function OrderForm() {
                       <div className="px-3 py-1 bg-[#25F4EE] rounded-full text-[10px] font-black text-black uppercase tracking-widest">Bank Details</div>
                       <span className="font-black text-[#25F4EE] text-sm">OPAY</span>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Account Name</p>
                       <p className="font-bold text-white text-sm">KEHINDE AYOMIDE MUKAIL</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Transfer Amount</p>
+                      <p className="font-black text-[#FE2C55] text-2xl tracking-tight">₦{form.getValues("totalAmount").toLocaleString()}</p>
                     </div>
 
                     <div className="flex justify-between items-end pt-2 border-t border-white/5">
