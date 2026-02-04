@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Copy, Upload, Loader2, CheckCircle } from "lucide-react";
+import { SiTiktok } from "react-icons/si";
 
 const SERVICES = [
   { id: "Likes", name: "Likes", price: 500 },
@@ -150,8 +151,8 @@ export default function OrderForm() {
         <div className="h-1.5 w-full bg-gradient-to-r from-[#FE2C55] via-[#25F4EE] to-[#FE2C55] animate-gradient-x"></div>
         <CardHeader className="pt-8 pb-4">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg rotate-3">
-              <div className="w-10 h-10 border-[3px] border-black rounded-lg transform rotate-12 flex items-center justify-center font-black text-xl italic">T</div>
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg rotate-3 overflow-hidden">
+              <SiTiktok className="w-10 h-10 text-black" />
             </div>
             <CardTitle className="text-3xl font-black font-montserrat tracking-tight text-white mt-2">
               TIKTOK<span className="text-[#FE2C55]">BOOST</span>
@@ -284,11 +285,11 @@ export default function OrderForm() {
                       <FormItem className="space-y-1.5">
                         <FormLabel className="text-white/60 font-bold uppercase text-[10px] tracking-[0.2em] ml-1">Upload Receipt</FormLabel>
                         <FormControl>
-                          <div className="border-2 border-dashed border-white/10 hover:border-[#25F4EE] rounded-3xl p-8 text-center transition-all cursor-pointer relative bg-white/5 group">
+                          <label className="border-2 border-dashed border-white/10 hover:border-[#25F4EE] rounded-3xl p-8 text-center transition-all cursor-pointer relative bg-white/5 group flex flex-col items-center">
                             <Input 
                               type="file" 
                               accept="image/*"
-                              className="absolute inset-0 opacity-0 cursor-pointer z-20" 
+                              className="hidden" 
                               onChange={handleFileUpload}
                             />
                             <div className="relative z-10 flex flex-col items-center">
@@ -299,7 +300,7 @@ export default function OrderForm() {
                                 {receiptFile ? receiptFile.name : "Tap to upload payment screenshot"}
                               </p>
                             </div>
-                          </div>
+                          </label>
                         </FormControl>
                         <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
                       </FormItem>
