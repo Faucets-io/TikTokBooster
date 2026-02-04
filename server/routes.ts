@@ -20,17 +20,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 🛠️ Service: ${order.service}
 📊 Quantity: ${order.quantity.toLocaleString()}
 💰 Amount: ₦${order.totalAmount.toLocaleString()}
-📄 Receipt: ${order.receiptUrl || "No receipt uploaded"}
       `;
 
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-        }),
-      });
+      try {
+        if (order.receiptUrl && order.receiptUrl.startsWith('data:image')) {
+          const base64Data = order.receiptUrl.split(',')[1];
+          const buffer = Buffer.from(base64Data, 'base64');
+          
+          // Using a simpler approach: sendPhoto with the image buffer
+          // We'll use a boundary for multipart/form-data
+          const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+          const header = `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${TELEGRAM_CHAT_ID}\r\n` +
+                        `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${message}\r\n` +
+                        `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="receipt.png"\r\nContent-Type: image/png\r\n\r\n`;
+          const footer = `\r\n--${boundary}--`;
+          
+          const body = Buffer.concat([
+            Buffer.from(header, 'utf8'),
+            buffer,
+            Buffer.from(footer, 'utf8')
+          ]);
+
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+            body: body,
+          });
+        } else {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: message,
+            }),
+          });
+        }
+      } catch (tgError) {
+        console.error("Telegram notification failed:", tgError);
+        // Fallback to simple message if photo fails
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: message + "\n(Image upload failed)",
+          }),
+        });
+      }
 
       res.status(201).json(order);
     } catch (error: any) {

@@ -56,9 +56,11 @@ export default function OrderForm() {
     const file = e.target.files?.[0];
     if (file) {
       setReceiptFile(file);
-      // In a real app, we'd upload to S3/Cloudinary here.
-      // For now, we'll just use a local URL to satisfy the form.
-      form.setValue("receiptUrl", URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        form.setValue("receiptUrl", reader.result as string);
+      };
+      reader.readAsDataURL(file);
       toast({ title: "Success", description: "Receipt attached successfully." });
     }
   };
@@ -137,49 +139,45 @@ export default function OrderForm() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-black">
-      {/* TikTok Style Background Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-20">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-[#FE2C55] rounded-full blur-[120px]"></div>
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-[#25F4EE] rounded-full blur-[120px]"></div>
+    <div className="flex-1 flex items-center justify-center p-6 bg-[#010101] min-h-screen">
+      {/* Dynamic TikTok-inspired background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#FE2C55] rounded-full blur-[150px] opacity-10 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#25F4EE] rounded-full blur-[150px] opacity-10 animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <Card className="w-full max-w-md bg-[#121212] border-[#2F2F2F] shadow-2xl relative z-10 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#FE2C55] via-[#25F4EE] to-[#FE2C55]"></div>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-black rounded-sm transform rotate-12"></div>
+      <Card className="w-full max-w-md bg-white/5 backdrop-blur-xl border-white/10 shadow-2xl relative z-10 rounded-3xl overflow-hidden border">
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#FE2C55] via-[#25F4EE] to-[#FE2C55] animate-gradient-x"></div>
+        <CardHeader className="pt-8 pb-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg rotate-3">
+              <div className="w-10 h-10 border-[3px] border-black rounded-lg transform rotate-12 flex items-center justify-center font-black text-xl italic">T</div>
             </div>
-            <CardTitle className="text-2xl font-black font-montserrat italic text-white tracking-tighter uppercase">
-              TikTok Boost
+            <CardTitle className="text-3xl font-black font-montserrat tracking-tight text-white mt-2">
+              TIKTOK<span className="text-[#FE2C55]">BOOST</span>
             </CardTitle>
+            <div className="h-0.5 w-12 bg-white/20 rounded-full"></div>
           </div>
-          <p className="text-center text-xs text-gray-500 font-bold tracking-widest uppercase">
-            {step === 1 ? "Premium Growth Service" : "Secure Checkout"}
-          </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-8 pb-8">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {step === 1 ? (
                 <>
                   <FormField
                     control={form.control}
                     name="link"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Post or Profile Link</FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-white/60 font-bold uppercase text-[10px] tracking-[0.2em] ml-1">Target Link</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Input 
-                              placeholder="https://tiktok.com/@user/video/..." 
-                              className="bg-[#1A1A1A] border-[#2F2F2F] text-white px-4 focus:border-[#FE2C55] focus:ring-1 focus:ring-[#FE2C55] rounded-none h-12 font-medium" 
-                              {...field} 
-                            />
-                          </div>
+                          <Input 
+                            placeholder="Paste TikTok link here..." 
+                            className="bg-white/5 border-white/10 text-white px-5 focus:border-[#FE2C55] focus:ring-0 rounded-2xl h-14 font-medium placeholder:text-white/20 transition-all" 
+                            {...field} 
+                          />
                         </FormControl>
-                        <FormMessage className="text-[#FE2C55] text-[10px]" />
+                        <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
                       </FormItem>
                     )}
                   />
@@ -188,23 +186,23 @@ export default function OrderForm() {
                     control={form.control}
                     name="service"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Select Service</FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-white/60 font-bold uppercase text-[10px] tracking-[0.2em] ml-1">Select Growth Type</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-[#1A1A1A] border-[#2F2F2F] text-white focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] rounded-none h-12">
-                              <SelectValue placeholder="Select a service" />
+                            <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#25F4EE] focus:ring-0 rounded-2xl h-14 px-5">
+                              <SelectValue placeholder="Select service" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="bg-[#1A1A1A] border-[#2F2F2F] text-white">
+                          <SelectContent className="bg-[#121212] border-white/10 text-white rounded-2xl">
                             {SERVICES.map((s) => (
-                              <SelectItem key={s.id} value={s.id} className="focus:bg-[#FE2C55] focus:text-white">
-                                {s.name} (₦{s.price}/1k)
+                              <SelectItem key={s.id} value={s.id} className="focus:bg-[#FE2C55] focus:text-white py-3 rounded-xl mx-1 my-1">
+                                {s.name} <span className="text-white/40 text-[10px] ml-2 font-mono">₦{s.price}/1k</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage className="text-[#FE2C55] text-[10px]" />
+                        <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
                       </FormItem>
                     )}
                   />
@@ -213,59 +211,69 @@ export default function OrderForm() {
                     control={form.control}
                     name="quantity"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Quantity</FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-white/60 font-bold uppercase text-[10px] tracking-[0.2em] ml-1">Quantity</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min={100} 
-                            step={100}
-                            className="bg-[#1A1A1A] border-[#2F2F2F] text-white focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] rounded-none h-12 font-bold"
-                            {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          />
+                          <div className="relative group">
+                            <Input 
+                              type="number" 
+                              min={100} 
+                              step={100}
+                              className="bg-white/5 border-white/10 text-white focus:border-[#25F4EE] focus:ring-0 rounded-2xl h-14 px-5 font-black text-lg"
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 font-bold text-xs uppercase tracking-widest">Units</div>
+                          </div>
                         </FormControl>
-                        <FormMessage className="text-[#FE2C55] text-[10px]" />
+                        <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
                       </FormItem>
                     )}
                   />
 
-                  <div className="p-4 bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#2F2F2F] flex justify-between items-center group overflow-hidden relative">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#FE2C55]"></div>
-                    <span className="font-bold text-gray-400 uppercase text-xs tracking-wider">Total Price</span>
-                    <span className="text-2xl font-black text-white italic">₦{form.watch("totalAmount").toLocaleString()}</span>
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/10 to-transparent p-5 border border-white/5">
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Total Investment</p>
+                        <p className="text-3xl font-black text-white italic tracking-tight">₦{form.watch("totalAmount").toLocaleString()}</p>
+                      </div>
+                      <div className="h-10 w-10 rounded-full bg-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55]">
+                        <CheckCircle className="w-6 h-6" />
+                      </div>
+                    </div>
                   </div>
 
-                  <Button type="submit" className="w-full bg-[#FE2C55] hover:bg-[#FE2C55]/90 text-white font-black uppercase tracking-tighter italic h-14 rounded-none text-lg shadow-[0_4px_0_rgb(180,20,50)] active:shadow-none active:translate-y-[4px] transition-all">
-                    Proceed to Payment
+                  <Button type="submit" className="w-full bg-[#FE2C55] hover:bg-[#ff3d66] text-white font-black uppercase tracking-widest italic h-16 rounded-2xl text-lg shadow-xl hover:shadow-[#FE2C55]/20 transition-all active:scale-[0.98]">
+                    Launch Growth 🚀
                   </Button>
                 </>
               ) : (
-                <div className="space-y-5 animate-in slide-in-from-right duration-300">
-                  <div className="p-4 border border-[#2F2F2F] space-y-3 bg-[#1A1A1A] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-12 h-12 bg-[#25F4EE]/10 rounded-full -mr-6 -mt-6"></div>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4 relative overflow-hidden">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Bank</span>
-                      <span className="font-black text-[#25F4EE]">OPAY</span>
+                      <div className="px-3 py-1 bg-[#25F4EE] rounded-full text-[10px] font-black text-black uppercase tracking-widest">Bank Details</div>
+                      <span className="font-black text-[#25F4EE] text-sm">OPAY</span>
                     </div>
-                    <div className="flex justify-between items-center border-t border-[#2F2F2F] pt-2">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Name</span>
-                      <span className="font-bold text-white text-xs">KEHINDE AYOMIDE MUKAIL</span>
+                    
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Account Name</p>
+                      <p className="font-bold text-white text-sm">KEHINDE AYOMIDE MUKAIL</p>
                     </div>
-                    <div className="flex justify-between items-center border-t border-[#2F2F2F] pt-2">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Number</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-white text-lg tracking-tighter">9013247595</span>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-[#FE2C55] hover:bg-[#FE2C55]/10 rounded-full"
-                          onClick={() => copyToClipboard("9013247595")}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+
+                    <div className="flex justify-between items-end pt-2 border-t border-white/5">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Account Number</p>
+                        <p className="font-black text-white text-2xl tracking-tight">9013247595</p>
                       </div>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-12 w-12 bg-white/5 text-[#FE2C55] hover:bg-[#FE2C55] hover:text-white rounded-2xl transition-all"
+                        onClick={() => copyToClipboard("9013247595")}
+                      >
+                        <Copy className="h-5 w-5" />
+                      </Button>
                     </div>
                   </div>
 
@@ -273,48 +281,45 @@ export default function OrderForm() {
                     control={form.control}
                     name="receiptUrl"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Payment Receipt</FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-white/60 font-bold uppercase text-[10px] tracking-[0.2em] ml-1">Upload Receipt</FormLabel>
                         <FormControl>
-                          <div className="border-2 border-dashed border-[#2F2F2F] hover:border-[#25F4EE] rounded-none p-6 text-center transition-all cursor-pointer relative bg-[#1A1A1A] group">
+                          <div className="border-2 border-dashed border-white/10 hover:border-[#25F4EE] rounded-3xl p-8 text-center transition-all cursor-pointer relative bg-white/5 group">
                             <Input 
                               type="file" 
                               accept="image/*"
                               className="absolute inset-0 opacity-0 cursor-pointer z-20" 
                               onChange={handleFileUpload}
                             />
-                            <div className="relative z-10">
-                              <Upload className="mx-auto h-10 w-10 text-gray-500 mb-2 group-hover:text-[#25F4EE] transition-colors" />
-                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                {receiptFile ? receiptFile.name : "Tap to upload screenshot"}
+                            <div className="relative z-10 flex flex-col items-center">
+                              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                <Upload className="h-6 w-6 text-white/40 group-hover:text-[#25F4EE]" />
+                              </div>
+                              <p className="text-xs font-bold text-white/40 uppercase tracking-widest leading-relaxed">
+                                {receiptFile ? receiptFile.name : "Tap to upload payment screenshot"}
                               </p>
-                              {receiptFile && (
-                                <div className="mt-2 flex justify-center">
-                                  <div className="h-1 bg-[#25F4EE] animate-[shimmer_2s_infinite]" style={{ width: '100%' }}></div>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </FormControl>
-                        <FormMessage className="text-[#FE2C55] text-[10px]" />
+                        <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
                       </FormItem>
                     )}
                   />
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     <Button 
                       type="button" 
                       variant="outline" 
                       onClick={() => setStep(1)} 
-                      className="flex-1 border-[#2F2F2F] text-gray-400 hover:bg-white/5 rounded-none font-bold uppercase text-xs tracking-widest h-12"
+                      className="flex-1 border-white/10 bg-transparent text-white/60 hover:bg-white/5 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] h-14"
                     >
-                      Back
+                      Change Order
                     </Button>
                     <Button 
                       type="submit" 
-                      className="flex-1 bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black uppercase tracking-tighter italic h-12 rounded-none text-lg shadow-[0_4px_0_rgb(20,150,150)] active:shadow-none active:translate-y-[4px] transition-all"
+                      className="flex-1 bg-[#25F4EE] hover:bg-[#1ee0d9] text-black font-black uppercase tracking-widest italic h-14 rounded-2xl text-lg shadow-xl shadow-[#25F4EE]/10 transition-all active:scale-[0.98]"
                     >
-                      I've Sent It
+                      Finish Payment
                     </Button>
                   </div>
                 </div>
@@ -322,10 +327,14 @@ export default function OrderForm() {
             </form>
           </Form>
         </CardContent>
-        <div className="px-6 pb-6 pt-2">
-          <p className="text-[8px] text-gray-600 text-center font-bold uppercase tracking-[0.2em]">
-            Trusted by 50,000+ Creators Worldwide
-          </p>
+        <div className="px-8 pb-8 pt-2">
+          <div className="flex items-center justify-center gap-4 opacity-30">
+            <div className="h-px flex-1 bg-white/20"></div>
+            <p className="text-[8px] text-white font-bold uppercase tracking-[0.3em] whitespace-nowrap">
+              Secured Transaction
+            </p>
+            <div className="h-px flex-1 bg-white/20"></div>
+          </div>
         </div>
       </Card>
     </div>
