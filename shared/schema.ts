@@ -21,7 +21,7 @@ export const insertOrderSchema = createInsertSchema(orders).pick({
   receiptUrl: true,
 }).extend({
   quantity: z.number().min(1, "Quantity must be at least 1"),
-  totalAmount: z.number().min(500, "Minimum order amount is ₦500"),
+  totalAmount: z.number().min(1000, "Minimum order amount is ₦1,000"),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
