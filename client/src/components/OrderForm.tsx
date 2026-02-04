@@ -56,13 +56,40 @@ export default function OrderForm() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ 
+          variant: "destructive", 
+          title: "File too large", 
+          description: "Please upload an image smaller than 5MB." 
+        });
+        return;
+      }
+
       setReceiptFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        form.setValue("receiptUrl", reader.result as string);
+        const result = reader.result as string;
+        // Basic check for empty or invalid data
+        if (!result || !result.startsWith('data:image')) {
+          toast({ 
+            variant: "destructive", 
+            title: "Invalid Image", 
+            description: "Please upload a valid image file." 
+          });
+          return;
+        }
+        form.setValue("receiptUrl", result);
+        toast({ title: "Success", description: "Receipt attached successfully." });
+      };
+      reader.onerror = () => {
+        toast({ 
+          variant: "destructive", 
+          title: "Upload Error", 
+          description: "Failed to read the file. Please try again." 
+        });
       };
       reader.readAsDataURL(file);
-      toast({ title: "Success", description: "Receipt attached successfully." });
     }
   };
 
