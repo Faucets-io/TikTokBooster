@@ -28,7 +28,7 @@ export default function OrderForm() {
   const form = useForm<InsertOrder>({
     resolver: zodResolver(insertOrderSchema),
     defaultValues: {
-      username: "",
+      link: "",
       service: "Likes",
       quantity: 1000,
       totalAmount: 500,
@@ -65,6 +65,14 @@ export default function OrderForm() {
 
   const onSubmit = async (data: InsertOrder) => {
     if (step === 1) {
+      if (data.totalAmount < 500) {
+        toast({ 
+          variant: "destructive", 
+          title: "Minimum Amount", 
+          description: "Minimum order amount is ₦500. Please increase quantity." 
+        });
+        return;
+      }
       setStep(2);
       return;
     }
@@ -158,16 +166,15 @@ export default function OrderForm() {
                 <>
                   <FormField
                     control={form.control}
-                    name="username"
+                    name="link"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Username</FormLabel>
+                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Post or Profile Link</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#FE2C55] font-bold">@</span>
                             <Input 
-                              placeholder="username" 
-                              className="bg-[#1A1A1A] border-[#2F2F2F] text-white pl-8 focus:border-[#FE2C55] focus:ring-1 focus:ring-[#FE2C55] rounded-none h-12 font-medium" 
+                              placeholder="https://tiktok.com/@user/video/..." 
+                              className="bg-[#1A1A1A] border-[#2F2F2F] text-white px-4 focus:border-[#FE2C55] focus:ring-1 focus:ring-[#FE2C55] rounded-none h-12 font-medium" 
                               {...field} 
                             />
                           </div>
@@ -207,11 +214,11 @@ export default function OrderForm() {
                     name="quantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Quantity (Min 1,000)</FormLabel>
+                        <FormLabel className="text-gray-300 font-bold uppercase text-[10px] tracking-widest">Quantity</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
-                            min={1000} 
+                            min={100} 
                             step={100}
                             className="bg-[#1A1A1A] border-[#2F2F2F] text-white focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] rounded-none h-12 font-bold"
                             {...field} 

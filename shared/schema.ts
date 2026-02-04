@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull(),
+  link: text("link").notNull(),
   service: text("service").notNull(),
   quantity: integer("quantity").notNull(),
   totalAmount: integer("total_amount").notNull(),
@@ -14,13 +14,14 @@ export const orders = pgTable("orders", {
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({
-  username: true,
+  link: true,
   service: true,
   quantity: true,
   totalAmount: true,
   receiptUrl: true,
 }).extend({
-  quantity: z.number().min(1000, "Minimum order is 1,000"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  totalAmount: z.number().min(500, "Minimum order amount is ₦500"),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
