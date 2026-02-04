@@ -95,11 +95,11 @@ export default function OrderForm() {
 
   const onSubmit = async (data: InsertOrder) => {
     if (step === 1) {
-      if (data.totalAmount < 1000) {
+      if (data.totalAmount < 500) {
         toast({ 
           variant: "destructive", 
           title: "Minimum Amount", 
-          description: "Minimum order amount is ₦1,000. Please increase quantity." 
+          description: "Minimum order amount is ₦500. Please increase quantity." 
         });
         return;
       }
