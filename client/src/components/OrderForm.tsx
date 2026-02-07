@@ -280,7 +280,7 @@ export default function OrderForm() {
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4 relative overflow-hidden">
                     <div className="flex justify-between items-center">
                       <div className="px-3 py-1 bg-[#25F4EE] rounded-full text-[10px] font-black text-black uppercase tracking-widest">Bank Details</div>
-                      <span className="font-black text-[#25F4EE] text-sm">OPAY</span>
+                      <span className="font-black text-[#25F4EE] text-sm">PALMPAY</span>
                     </div>
 
                     <div className="space-y-1">
