@@ -14,13 +14,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8070873055:AAHRpIvi56j4F2h0BhBA_uB4tyw_SCYMsVM";
       const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "6360165707";
       
-      const message = `
-🚀 New Order Received!
-👤 Link: ${order.link}
-🛠️ Service: ${order.service}
-📊 Quantity: ${order.quantity.toLocaleString()}
-💰 Amount: ₦${order.totalAmount.toLocaleString()}
-      `;
+      const now = new Date();
+      const timestamp = now.toLocaleString("en-NG", {
+        timeZone: "Africa/Lagos",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      const message =
+`🔔 <b>NEW ORDER — #${order.id}</b>
+━━━━━━━━━━━━━━━━━━━━
+
+🛒 <b>Order Details</b>
+├ Service: <code>${order.service}</code>
+├ Quantity: <b>${order.quantity.toLocaleString()} units</b>
+└ Amount: <b>₦${order.totalAmount.toLocaleString()}</b>
+
+🔗 <b>Target Link</b>
+└ ${order.link}
+
+💳 <b>Payment</b>
+└ Receipt: ${order.receiptUrl ? "✅ Attached" : "❌ Not provided"}
+
+🕒 <b>Time:</b> ${timestamp}
+━━━━━━━━━━━━━━━━━━━━
+📌 Status: <b>Pending Review</b>`;
 
       try {
         if (order.receiptUrl && order.receiptUrl.startsWith('data:image')) {
@@ -32,6 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
           const header = `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${TELEGRAM_CHAT_ID}\r\n` +
                         `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${message}\r\n` +
+                        `--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nHTML\r\n` +
                         `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="receipt.png"\r\nContent-Type: image/png\r\n\r\n`;
           const footer = `\r\n--${boundary}--`;
           
@@ -53,6 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body: JSON.stringify({
               chat_id: TELEGRAM_CHAT_ID,
               text: message,
+              parse_mode: "HTML",
             }),
           });
         }
@@ -64,7 +88,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: TELEGRAM_CHAT_ID,
-            text: message + "\n(Image upload failed)",
+            text: message + "\n\n⚠️ <i>Receipt image could not be attached.</i>",
+            parse_mode: "HTML",
           }),
         });
       }
