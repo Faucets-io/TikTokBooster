@@ -437,9 +437,17 @@ export default function OrderForm() {
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Bank Transfer Details</p>
-                  <span className="text-xs font-bold text-white/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-                    {BANK.bank}
-                  </span>
+                </div>
+
+                {/* Bank name prominent display */}
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/25">
+                  <div className="w-8 h-8 rounded-lg bg-[#25F4EE] flex items-center justify-center flex-shrink-0">
+                    <span className="text-black font-black text-[10px]">PAY</span>
+                  </div>
+                  <div>
+                    <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest">Send to this bank</p>
+                    <p className="text-[#25F4EE] font-black text-base tracking-wide">{BANK.bank}</p>
+                  </div>
                 </div>
 
                 <div className="space-y-3 pt-1">
