@@ -5,92 +5,75 @@ import { insertOrderSchema, type InsertOrder } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Copy, Upload, Loader2, CheckCircle, Zap, Eye, Heart, Users, Flame, Rocket, Star, TrendingUp } from "lucide-react";
+import { Copy, Upload, Loader2, CheckCircle, AlertTriangle, Flame, Rocket, Heart, Eye, Users, ChevronRight } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
 
 const SERVICES = [
   {
     id: "LikesInstant",
-    name: "Likes [Instant] [High Quality]🔥🔥",
-    shortName: "Instant Likes",
+    label: "Likes — Instant · High Quality 🔥",
+    shortLabel: "Instant Likes",
     price: 1310,
-    priceDisplay: "₦1,310/1k",
+    priceLabel: "₦1,310 / 1,000 likes",
     minQty: 1000,
     hot: true,
     icon: Flame,
-    color: "#FE2C55",
-    description: "Ultra-fast delivery, real high-quality likes",
+    accentColor: "#FE2C55",
   },
   {
     id: "ViewsFast",
-    name: "Views [fast] [High Quality]🚀🚀",
-    shortName: "Fast Views",
+    label: "Views — Fast · High Quality 🚀",
+    shortLabel: "Fast Views",
     price: 530,
-    priceDisplay: "₦1,060/2k",
+    priceLabel: "₦1,060 / 2,000 views",
     minQty: 2000,
     hot: true,
     icon: Rocket,
-    color: "#25F4EE",
-    description: "Lightning-speed views, premium quality guaranteed",
+    accentColor: "#25F4EE",
   },
   {
     id: "Likes",
-    name: "Likes",
-    shortName: "Likes",
+    label: "Likes — Standard",
+    shortLabel: "Standard Likes",
     price: 500,
-    priceDisplay: "₦500/1k",
+    priceLabel: "₦500 / 1,000 likes",
     minQty: 1000,
     hot: false,
     icon: Heart,
-    color: "#FE2C55",
-    description: "Standard likes delivery",
+    accentColor: "#FE2C55",
   },
   {
     id: "Views",
-    name: "Views",
-    shortName: "Views",
+    label: "Views — Standard",
+    shortLabel: "Standard Views",
     price: 500,
-    priceDisplay: "₦500/1k",
+    priceLabel: "₦500 / 1,000 views",
     minQty: 1000,
     hot: false,
     icon: Eye,
-    color: "#25F4EE",
-    description: "Standard views delivery",
+    accentColor: "#25F4EE",
   },
   {
     id: "Followers",
-    name: "Followers",
-    shortName: "Followers",
+    label: "Followers",
+    shortLabel: "Followers",
     price: 3500,
-    priceDisplay: "₦3,500/1k",
+    priceLabel: "₦3,500 / 1,000 followers",
     minQty: 1000,
     hot: false,
     icon: Users,
-    color: "#A855F7",
-    description: "Real follower growth",
+    accentColor: "#A855F7",
   },
 ];
 
-const HOT_PICKS = [
-  {
-    serviceId: "LikesInstant",
-    qty: 1000,
-    label: "Starter Pack",
-    badge: "🔥 HOT",
-    badgeColor: "#FE2C55",
-  },
-  {
-    serviceId: "ViewsFast",
-    qty: 2000,
-    label: "Viral Boost",
-    badge: "🚀 TRENDING",
-    badgeColor: "#25F4EE",
-  },
-];
+const BANK = {
+  name: "KEHINDE AYOMIDE MUKAIL",
+  number: "9013247595",
+  bank: "PalmPay",
+};
 
 export default function OrderForm() {
   const { toast } = useToast();
@@ -111,523 +94,474 @@ export default function OrderForm() {
 
   const selectedServiceId = form.watch("service");
   const quantity = form.watch("quantity");
-  const selectedService = SERVICES.find((s) => s.id === selectedServiceId);
+  const selectedService = SERVICES.find((s) => s.id === selectedServiceId)!;
 
   useEffect(() => {
     if (selectedService) {
       const amount = Math.round((quantity / 1000) * selectedService.price);
       form.setValue("totalAmount", amount);
     }
-  }, [selectedServiceId, quantity, selectedService, form]);
-
-  const applyHotPick = (serviceId: string, qty: number) => {
-    const svc = SERVICES.find((s) => s.id === serviceId);
-    if (!svc) return;
-    form.setValue("service", serviceId);
-    form.setValue("quantity", qty);
-    form.setValue("totalAmount", Math.round((qty / 1000) * svc.price));
-    toast({ title: "Applied!", description: `${svc.shortName} — ${qty.toLocaleString()} units selected.` });
-  };
+  }, [selectedServiceId, quantity]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: "Account number copied to clipboard." });
+    toast({ title: "Copied to clipboard" });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ variant: "destructive", title: "File too large", description: "Please upload an image smaller than 5MB." });
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "File too large", description: "Maximum size is 5 MB." });
+      return;
+    }
+    setReceiptFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      if (!result?.startsWith("data:image")) {
+        toast({ variant: "destructive", title: "Invalid file", description: "Please upload a valid image." });
         return;
       }
-      setReceiptFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        if (!result || !result.startsWith("data:image")) {
-          toast({ variant: "destructive", title: "Invalid Image", description: "Please upload a valid image file." });
-          return;
-        }
-        form.setValue("receiptUrl", result);
-        toast({ title: "Receipt attached!", description: "Payment screenshot ready." });
-      };
-      reader.onerror = () => {
-        toast({ variant: "destructive", title: "Upload Error", description: "Failed to read the file. Please try again." });
-      };
-      reader.readAsDataURL(file);
-    }
+      form.setValue("receiptUrl", result);
+    };
+    reader.onerror = () =>
+      toast({ variant: "destructive", title: "Upload failed", description: "Could not read the file. Please try again." });
+    reader.readAsDataURL(file);
   };
 
   const onSubmit = async (data: InsertOrder) => {
     if (step === 1) {
-      const svc = SERVICES.find((s) => s.id === data.service);
-      if (svc && data.quantity < svc.minQty) {
+      if (data.quantity < selectedService.minQty) {
         toast({
           variant: "destructive",
-          title: "Minimum Quantity",
-          description: `Minimum order for this service is ${svc.minQty.toLocaleString()} units.`,
+          title: "Quantity too low",
+          description: `Minimum order for this service is ${selectedService.minQty.toLocaleString()} units.`,
         });
         return;
       }
       setStep(2);
       return;
     }
-
     if (!receiptFile) {
-      toast({ variant: "destructive", title: "Missing Receipt", description: "Please upload your payment receipt screenshot." });
+      toast({ variant: "destructive", title: "Receipt required", description: "Please attach your payment receipt before submitting." });
       return;
     }
-
     try {
       setProcessing(true);
       await apiRequest("POST", "/api/orders", data);
-      setTimeout(() => {
-        setProcessing(false);
-        setStep(3);
-      }, 10000);
+      setTimeout(() => { setProcessing(false); setStep(3); }, 10000);
     } catch (error: any) {
       setProcessing(false);
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: "Submission failed", description: error.message });
     }
   };
 
-  if (step === 3) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-[#010101] min-h-screen">
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#25F4EE] rounded-full blur-[200px] opacity-5"></div>
-        </div>
-        <Card className="w-full max-w-md text-center py-10 bg-white/5 backdrop-blur-xl border-white/10 rounded-3xl relative z-10 overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FE2C55] via-[#25F4EE] to-[#FE2C55]"></div>
-          <CardContent className="space-y-6 pt-4">
-            <div className="relative w-24 h-24 mx-auto">
-              <div className="absolute inset-0 bg-[#25F4EE] rounded-full blur-2xl opacity-20 animate-pulse"></div>
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#25F4EE]/20 to-[#FE2C55]/20 flex items-center justify-center border border-white/10 relative z-10">
-                <CheckCircle className="w-12 h-12 text-[#25F4EE]" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-black font-montserrat text-white tracking-tight">Order Placed!</h2>
-              <p className="text-white/50 text-sm">Your growth campaign is now live. Results will appear shortly.</p>
-            </div>
-            <div className="flex gap-2 justify-center">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-5 h-5 fill-[#FE2C55] text-[#FE2C55]" />
-              ))}
-            </div>
-            <Button
-              data-testid="button-order-more"
-              onClick={() => window.location.reload()}
-              className="w-full bg-gradient-to-r from-[#FE2C55] to-[#ff6b35] hover:opacity-90 text-white font-black uppercase tracking-widest h-14 rounded-2xl text-sm shadow-xl shadow-[#FE2C55]/20 transition-all active:scale-[0.98]"
-            >
-              Start New Order
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  /* ── Processing screen ── */
   if (processing) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-[#010101] min-h-screen">
-        <div className="text-center space-y-8">
-          <div className="relative w-28 h-28 mx-auto">
-            <div className="absolute inset-0 border-2 border-[#FE2C55]/30 rounded-full animate-ping"></div>
-            <div className="absolute inset-2 border-2 border-[#25F4EE]/30 rounded-full animate-ping" style={{ animationDelay: "0.3s" }}></div>
-            <div className="w-28 h-28 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-              <Loader2 className="w-12 h-12 animate-spin text-[#25F4EE]" />
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-[#050505]">
+        <div className="text-center space-y-6 px-6">
+          <div className="relative w-20 h-20 mx-auto">
+            <div className="absolute inset-0 rounded-full border-2 border-[#FE2C55]/30 animate-ping" />
+            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+              <Loader2 className="w-9 h-9 animate-spin text-[#25F4EE]" />
             </div>
           </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-white font-montserrat tracking-tight">Verifying Payment</h2>
-            <p className="text-white/40 text-sm">Please keep this window open...</p>
-          </div>
-          <div className="flex gap-1.5 justify-center">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full bg-[#25F4EE] animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
-              ></div>
-            ))}
+          <div>
+            <p className="text-white font-bold text-lg">Verifying your payment…</p>
+            <p className="text-white/40 text-sm mt-1">Please keep this window open. This may take a moment.</p>
           </div>
         </div>
       </div>
     );
   }
 
+  /* ── Success screen ── */
+  if (step === 3) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-[#050505] px-4">
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center mx-auto">
+            <CheckCircle className="w-10 h-10 text-[#25F4EE]" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white">Order Received</h2>
+            <p className="text-white/50 text-sm mt-2 leading-relaxed">
+              Your order has been submitted successfully. Growth will begin once payment is confirmed.
+            </p>
+          </div>
+          <Button
+            data-testid="button-new-order"
+            onClick={() => window.location.reload()}
+            className="w-full bg-[#FE2C55] hover:bg-[#e02449] text-white font-bold h-12 rounded-xl transition-all"
+          >
+            Place Another Order
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Main form ── */
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-[#010101] min-h-screen">
-      {/* Ambient background glows */}
+    <div className="min-h-screen bg-[#050505] flex flex-col items-center px-4 py-8">
+      {/* Subtle background glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-[-15%] w-[60%] h-[60%] bg-[#FE2C55] rounded-full blur-[180px] opacity-[0.07] animate-pulse"></div>
-        <div className="absolute bottom-[-20%] right-[-15%] w-[60%] h-[60%] bg-[#25F4EE] rounded-full blur-[180px] opacity-[0.07] animate-pulse" style={{ animationDelay: "1.5s" }}></div>
-        <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] bg-[#A855F7] rounded-full blur-[150px] opacity-[0.04]"></div>
-        {/* Subtle grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        ></div>
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#FE2C55] rounded-full blur-[160px] opacity-[0.06]" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#25F4EE] rounded-full blur-[160px] opacity-[0.06]" />
       </div>
 
-      <div className="w-full max-w-md relative z-10 space-y-4">
-        {/* Header logo area */}
-        <div className="flex flex-col items-center gap-3 pb-2">
-          <div className="relative">
-            <div className="absolute inset-0 bg-white blur-xl opacity-10 rounded-2xl"></div>
-            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-2xl relative z-10">
-              <SiTiktok className="w-8 h-8 text-black" />
+      <div className="w-full max-w-md relative z-10 space-y-6">
+
+        {/* Brand header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
+              <SiTiktok className="w-6 h-6 text-black" />
+            </div>
+            <div>
+              <p className="text-white font-black text-base tracking-tight leading-none">
+                TIKTOK<span className="text-[#FE2C55]">BOOST</span>
+              </p>
+              <p className="text-white/30 text-[10px] uppercase tracking-widest mt-0.5">Premium Growth</p>
             </div>
           </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-black font-montserrat text-white tracking-tight">
-              TIKTOK<span className="text-[#FE2C55]">BOOST</span>
-            </h1>
-            <p className="text-white/30 text-[10px] uppercase tracking-[0.25em] font-bold mt-0.5">Premium Growth Platform</p>
+          {/* Step indicator */}
+          <div className="flex items-center gap-1.5">
+            <div className={`h-1.5 w-8 rounded-full transition-all ${step >= 1 ? "bg-[#FE2C55]" : "bg-white/10"}`} />
+            <div className={`h-1.5 w-8 rounded-full transition-all ${step >= 2 ? "bg-[#25F4EE]" : "bg-white/10"}`} />
           </div>
         </div>
 
-        {/* HOT RECOMMENDATIONS */}
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2 px-1">
-            <TrendingUp className="w-3.5 h-3.5 text-[#FE2C55]" />
-            <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.25em]">Hot Recommendations</span>
-            <div className="flex-1 h-px bg-white/5"></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {HOT_PICKS.map((pick) => {
-              const svc = SERVICES.find((s) => s.id === pick.serviceId)!;
-              const Icon = svc.icon;
-              const total = Math.round((pick.qty / 1000) * svc.price);
-              return (
-                <button
-                  key={pick.serviceId}
-                  data-testid={`button-hotpick-${pick.serviceId}`}
-                  type="button"
-                  onClick={() => applyHotPick(pick.serviceId, pick.qty)}
-                  className="relative group text-left p-4 rounded-2xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 transition-all active:scale-[0.97] overflow-hidden"
-                >
-                  {/* Glow on hover */}
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity rounded-2xl"
-                    style={{ background: `radial-gradient(circle at 50% 0%, ${svc.color}, transparent 70%)` }}
-                  ></div>
-
-                  {/* Hot badge */}
-                  <div
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider mb-3"
-                    style={{ background: `${pick.badgeColor}20`, color: pick.badgeColor, border: `1px solid ${pick.badgeColor}30` }}
-                  >
-                    {pick.badge}
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-0.5">
-                      <p className="text-white font-black text-sm leading-tight">{svc.shortName}</p>
-                      <p className="text-white/40 text-[10px] font-medium">{pick.qty.toLocaleString()} units</p>
-                    </div>
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${svc.color}15` }}
+        {step === 1 && (
+          <>
+            {/* Hot Recommendations */}
+            <div>
+              <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] mb-3">
+                🔥 Recommended Services
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {SERVICES.filter((s) => s.hot).map((svc) => {
+                  const Icon = svc.icon;
+                  const isSelected = selectedServiceId === svc.id;
+                  return (
+                    <button
+                      key={svc.id}
+                      data-testid={`button-recommend-${svc.id}`}
+                      type="button"
+                      onClick={() => {
+                        form.setValue("service", svc.id);
+                        form.setValue("quantity", svc.minQty);
+                        form.setValue("totalAmount", Math.round((svc.minQty / 1000) * svc.price));
+                      }}
+                      className={`text-left p-4 rounded-2xl border transition-all active:scale-[0.97] ${
+                        isSelected
+                          ? "border-white/30 bg-white/10"
+                          : "border-white/8 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/15"
+                      }`}
                     >
-                      <Icon className="w-4 h-4" style={{ color: svc.color }} />
-                    </div>
-                  </div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span
+                          className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                          style={{ background: `${svc.accentColor}20`, color: svc.accentColor }}
+                        >
+                          HOT
+                        </span>
+                        <Icon className="w-4 h-4" style={{ color: svc.accentColor }} />
+                      </div>
+                      <p className="text-white font-bold text-sm leading-tight">{svc.shortLabel}</p>
+                      <p className="text-white/40 text-[11px] mt-1">{svc.priceLabel}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                  <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
-                    <p className="font-black text-white text-sm">₦{total.toLocaleString()}</p>
-                    <p className="text-[9px] text-white/30 font-bold uppercase">Tap to apply</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {/* Order form card */}
+            <Card className="bg-white/[0.04] border-white/10 rounded-2xl overflow-hidden">
+              <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+              <CardContent className="p-5 space-y-5">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-        {/* Main card */}
-        <Card className="w-full bg-white/[0.04] backdrop-blur-2xl border-white/10 shadow-2xl rounded-3xl overflow-hidden">
-          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#FE2C55] to-transparent opacity-60"></div>
-
-          <CardContent className="px-6 py-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                {step === 1 ? (
-                  <>
-                    {/* Link field */}
+                    {/* TikTok link */}
                     <FormField
                       control={form.control}
                       name="link"
                       render={({ field }) => (
-                        <FormItem className="space-y-1.5">
-                          <FormLabel className="text-white/40 font-black uppercase text-[9px] tracking-[0.25em]">
-                            Target Link
+                        <FormItem>
+                          <FormLabel className="text-white/50 text-[10px] font-bold uppercase tracking-[0.2em]">
+                            TikTok Link
                           </FormLabel>
                           <FormControl>
                             <Input
                               data-testid="input-link"
-                              placeholder="Paste TikTok link here..."
-                              className="bg-white/5 border-white/10 text-white px-4 focus:border-[#FE2C55]/50 focus:ring-0 focus:bg-white/[0.07] rounded-2xl h-13 font-medium placeholder:text-white/20 transition-all text-sm"
+                              placeholder="https://www.tiktok.com/@username/video/..."
+                              className="bg-white/5 border-white/10 text-white h-12 rounded-xl placeholder:text-white/20 text-sm focus:border-white/30 focus:ring-0 focus:bg-white/[0.07] transition-all"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
+                          <FormMessage className="text-[#FE2C55] text-[10px] font-semibold" />
                         </FormItem>
                       )}
                     />
 
-                    {/* Service select */}
+                    {/* Service selector — custom button group */}
                     <FormField
                       control={form.control}
                       name="service"
                       render={({ field }) => (
-                        <FormItem className="space-y-1.5">
-                          <FormLabel className="text-white/40 font-black uppercase text-[9px] tracking-[0.25em]">
-                            Select Growth Type
+                        <FormItem>
+                          <FormLabel className="text-white/50 text-[10px] font-bold uppercase tracking-[0.2em]">
+                            Service
                           </FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger
-                                data-testid="select-service"
-                                className="bg-white/5 border-white/10 text-white focus:border-[#25F4EE]/50 focus:ring-0 rounded-2xl h-13 px-4 text-sm"
-                              >
-                                <SelectValue placeholder="Select service" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="bg-[#0d0d0d] border-white/10 text-white rounded-2xl p-1">
-                              {SERVICES.map((s) => {
-                                const Icon = s.icon;
-                                return (
-                                  <SelectItem
-                                    key={s.id}
-                                    value={s.id}
-                                    className="focus:bg-white/10 focus:text-white py-2.5 rounded-xl mx-0.5 my-0.5 cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: s.color }} />
-                                      <span className="flex-1 text-sm">{s.name}</span>
-                                      {s.hot && (
-                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[8px] font-black bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/30 uppercase">
-                                          HOT
-                                        </span>
-                                      )}
-                                      <span className="text-white/30 text-[10px] font-mono ml-1">{s.priceDisplay}</span>
+                          <div className="space-y-2">
+                            {SERVICES.map((svc) => {
+                              const Icon = svc.icon;
+                              const isSelected = field.value === svc.id;
+                              return (
+                                <button
+                                  key={svc.id}
+                                  type="button"
+                                  data-testid={`button-service-${svc.id}`}
+                                  onClick={() => {
+                                    field.onChange(svc.id);
+                                    if (quantity < svc.minQty) form.setValue("quantity", svc.minQty);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all ${
+                                    isSelected
+                                      ? "border-white/25 bg-white/10"
+                                      : "border-white/8 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/15"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Icon className="w-4 h-4 flex-shrink-0" style={{ color: svc.accentColor }} />
+                                    <div>
+                                      <p className={`text-sm font-semibold leading-tight ${isSelected ? "text-white" : "text-white/70"}`}>
+                                        {svc.label}
+                                      </p>
+                                      <p className="text-white/35 text-[11px] mt-0.5">{svc.priceLabel}</p>
                                     </div>
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                    {svc.hot && (
+                                      <span
+                                        className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
+                                        style={{ background: `${svc.accentColor}20`, color: svc.accentColor }}
+                                      >
+                                        HOT
+                                      </span>
+                                    )}
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-white bg-white" : "border-white/20"}`}>
+                                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <FormMessage className="text-[#FE2C55] text-[10px] font-semibold" />
                         </FormItem>
                       )}
                     />
-
-                    {/* Service info strip */}
-                    {selectedService && (
-                      <div
-                        className="flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm transition-all"
-                        style={{
-                          background: `${selectedService.color}08`,
-                          borderColor: `${selectedService.color}20`,
-                        }}
-                      >
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: `${selectedService.color}15` }}
-                        >
-                          {(() => {
-                            const Icon = selectedService.icon;
-                            return <Icon className="w-4 h-4" style={{ color: selectedService.color }} />;
-                          })()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white/70 text-xs font-medium leading-snug">{selectedService.description}</p>
-                          <p className="text-white/30 text-[10px] mt-0.5">Min: {selectedService.minQty.toLocaleString()} units</p>
-                        </div>
-                        {selectedService.hot && (
-                          <span
-                            className="px-2 py-1 rounded-full text-[8px] font-black uppercase flex-shrink-0"
-                            style={{ background: `${selectedService.color}20`, color: selectedService.color }}
-                          >
-                            HOT
-                          </span>
-                        )}
-                      </div>
-                    )}
 
                     {/* Quantity */}
                     <FormField
                       control={form.control}
                       name="quantity"
                       render={({ field }) => (
-                        <FormItem className="space-y-1.5">
-                          <FormLabel className="text-white/40 font-black uppercase text-[9px] tracking-[0.25em]">
+                        <FormItem>
+                          <FormLabel className="text-white/50 text-[10px] font-bold uppercase tracking-[0.2em]">
                             Quantity
+                            <span className="ml-2 text-white/25 normal-case tracking-normal font-normal">
+                              (min {selectedService.minQty.toLocaleString()})
+                            </span>
                           </FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Input
                                 data-testid="input-quantity"
                                 type="number"
-                                min={selectedService?.minQty ?? 1000}
+                                min={selectedService.minQty}
                                 step={100}
-                                className="bg-white/5 border-white/10 text-white focus:border-[#25F4EE]/50 focus:ring-0 focus:bg-white/[0.07] rounded-2xl h-13 px-4 font-black text-base pr-16 transition-all"
+                                className="bg-white/5 border-white/10 text-white h-12 rounded-xl text-sm focus:border-white/30 focus:ring-0 focus:bg-white/[0.07] pr-16 transition-all font-bold"
                                 {...field}
                                 onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                               />
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 font-black text-[9px] uppercase tracking-widest">
-                                Units
-                              </div>
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] font-bold uppercase tracking-widest">
+                                units
+                              </span>
                             </div>
                           </FormControl>
-                          <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
+                          <FormMessage className="text-[#FE2C55] text-[10px] font-semibold" />
                         </FormItem>
                       )}
                     />
 
-                    {/* Total amount display */}
-                    <div className="relative overflow-hidden rounded-2xl p-4 border border-white/5 bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#FE2C55] rounded-full blur-3xl opacity-10 -translate-y-1/2 translate-x-1/2"></div>
-                      <div className="flex justify-between items-center relative z-10">
-                        <div className="space-y-0.5">
-                          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.25em]">Total Investment</p>
-                          <p
-                            data-testid="text-total-amount"
-                            className="text-3xl font-black text-white tracking-tight"
-                          >
-                            ₦{form.watch("totalAmount").toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="h-12 w-12 rounded-2xl bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center">
-                          <Zap className="w-5 h-5 text-[#25F4EE]" />
-                        </div>
+                    {/* Total */}
+                    <div className="flex items-center justify-between px-4 py-4 rounded-xl bg-white/[0.05] border border-white/8">
+                      <div>
+                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Total Amount</p>
+                        <p data-testid="text-total-amount" className="text-2xl font-black text-white mt-0.5">
+                          ₦{form.watch("totalAmount").toLocaleString()}
+                        </p>
                       </div>
+                      <ChevronRight className="w-5 h-5 text-white/20" />
                     </div>
 
                     <Button
-                      data-testid="button-launch-growth"
+                      data-testid="button-proceed-payment"
                       type="submit"
-                      className="w-full bg-gradient-to-r from-[#FE2C55] to-[#ff4b6e] hover:opacity-90 text-white font-black uppercase tracking-widest h-14 rounded-2xl text-sm shadow-xl shadow-[#FE2C55]/25 transition-all active:scale-[0.98]"
+                      className="w-full h-12 rounded-xl bg-[#FE2C55] hover:bg-[#e02449] text-white font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-[#FE2C55]/20"
                     >
-                      Launch Growth 🚀
+                      Proceed to Payment
                     </Button>
-                  </>
-                ) : (
-                  <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-400">
-                    {/* Payment details */}
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 space-y-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-[#25F4EE] rounded-full blur-3xl opacity-5"></div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-                      <div className="flex justify-between items-center">
-                        <span className="px-3 py-1 bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/25 rounded-full text-[9px] font-black uppercase tracking-wider">
-                          Bank Details
-                        </span>
-                        <span className="font-black text-white/60 text-xs tracking-widest uppercase">PalmPay</span>
-                      </div>
+        {step === 2 && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            <div>
+              <h2 className="text-white font-black text-xl">Complete Your Payment</h2>
+              <p className="text-white/40 text-sm mt-1">Transfer the exact amount to the account below, then upload your receipt.</p>
+            </div>
 
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.25em] mb-0.5">Account Name</p>
-                          <p className="font-bold text-white text-sm">KEHINDE AYOMIDE MUKAIL</p>
-                        </div>
+            {/* Bank details card */}
+            <Card className="bg-white/[0.04] border-white/10 rounded-2xl overflow-hidden">
+              <div className="h-px bg-gradient-to-r from-transparent via-[#25F4EE]/30 to-transparent" />
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Bank Transfer Details</p>
+                  <span className="text-xs font-bold text-white/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                    {BANK.bank}
+                  </span>
+                </div>
 
-                        <div>
-                          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.25em] mb-0.5">Transfer Amount</p>
-                          <p className="font-black text-[#FE2C55] text-2xl tracking-tight">
-                            ₦{form.getValues("totalAmount").toLocaleString()}
-                          </p>
-                        </div>
-
-                        <div className="flex justify-between items-end pt-3 border-t border-white/[0.06]">
-                          <div>
-                            <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.25em] mb-0.5">Account Number</p>
-                            <p className="font-black text-white text-2xl tracking-tight">9013247595</p>
-                          </div>
-                          <Button
-                            data-testid="button-copy-account"
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-11 w-11 bg-white/5 text-[#FE2C55] hover:bg-[#FE2C55]/15 hover:text-[#FE2C55] rounded-xl transition-all border border-white/10"
-                            onClick={() => copyToClipboard("9013247595")}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <p className="text-white/30 text-[10px] uppercase tracking-widest font-bold mb-0.5">Account Name</p>
+                    <p className="text-white font-bold text-sm">{BANK.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/30 text-[10px] uppercase tracking-widest font-bold mb-0.5">Amount to Send</p>
+                    <p className="text-[#FE2C55] font-black text-3xl tracking-tight">
+                      ₦{form.getValues("totalAmount").toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-end justify-between pt-3 border-t border-white/[0.06]">
+                    <div>
+                      <p className="text-white/30 text-[10px] uppercase tracking-widest font-bold mb-0.5">Account Number</p>
+                      <p className="text-white font-black text-2xl">{BANK.number}</p>
                     </div>
+                    <Button
+                      data-testid="button-copy-account"
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 px-4 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white rounded-xl border border-white/10 gap-2 transition-all font-semibold text-xs"
+                      onClick={() => copyToClipboard(BANK.number)}
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Copy
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                    {/* Upload */}
+            {/* Receipt upload */}
+            <Card className="bg-white/[0.04] border-white/10 rounded-2xl overflow-hidden">
+              <CardContent className="p-5 space-y-4">
+                <div>
+                  <p className="text-white font-bold text-sm">Upload Payment Receipt</p>
+                  <p className="text-white/50 text-xs mt-1 leading-relaxed">
+                    After making the transfer, upload a clear screenshot of your payment receipt below.
+                  </p>
+                </div>
+
+                {/* Important notice */}
+                <div className="flex gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-amber-400 text-xs font-bold">Important — Read Before Uploading</p>
+                    <p className="text-amber-300/80 text-[11px] leading-relaxed">
+                      Your receipt <strong className="text-amber-300">must clearly show your sender's account name</strong>.
+                      Orders submitted without a visible account name on the receipt <strong className="text-amber-300">will not be processed</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload area */}
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)}>
                     <FormField
                       control={form.control}
                       name="receiptUrl"
                       render={() => (
-                        <FormItem className="space-y-1.5">
-                          <FormLabel className="text-white/40 font-black uppercase text-[9px] tracking-[0.25em]">
-                            Upload Receipt
-                          </FormLabel>
+                        <FormItem>
                           <FormControl>
                             <label
                               data-testid="label-upload-receipt"
-                              className="border-2 border-dashed border-white/10 hover:border-[#25F4EE]/40 rounded-2xl p-7 text-center transition-all cursor-pointer bg-white/[0.03] hover:bg-white/[0.06] group flex flex-col items-center gap-3"
+                              className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-dashed border-white/10 hover:border-white/25 bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition-all group"
                             >
                               <Input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                              <div className="w-11 h-11 bg-white/5 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10">
-                                <Upload className="h-5 w-5 text-white/30 group-hover:text-[#25F4EE] transition-colors" />
+                              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
+                                {receiptFile
+                                  ? <CheckCircle className="w-6 h-6 text-[#25F4EE]" />
+                                  : <Upload className="w-6 h-6 text-white/30 group-hover:text-white/50 transition-colors" />
+                                }
                               </div>
-                              <div>
-                                <p className="text-xs font-bold text-white/40 group-hover:text-white/60 transition-colors">
-                                  {receiptFile ? receiptFile.name : "Tap to upload payment screenshot"}
-                                </p>
-                                {receiptFile && (
-                                  <p className="text-[10px] text-[#25F4EE] mt-1 font-bold">✓ File attached</p>
-                                )}
-                              </div>
+                              {receiptFile ? (
+                                <div className="text-center">
+                                  <p className="text-[#25F4EE] font-semibold text-sm">Receipt attached</p>
+                                  <p className="text-white/30 text-[11px] mt-0.5 truncate max-w-[200px]">{receiptFile.name}</p>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <p className="text-white/50 font-semibold text-sm">Tap to upload screenshot</p>
+                                  <p className="text-white/25 text-[11px] mt-0.5">PNG, JPG — max 5 MB</p>
+                                </div>
+                              )}
                             </label>
                           </FormControl>
-                          <FormMessage className="text-[#FE2C55] text-[10px] font-bold" />
+                          <FormMessage className="text-[#FE2C55] text-[10px] font-semibold" />
                         </FormItem>
                       )}
                     />
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 mt-4">
                       <Button
-                        data-testid="button-change-order"
+                        data-testid="button-go-back"
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => setStep(1)}
-                        className="flex-1 border-white/10 bg-transparent text-white/50 hover:bg-white/5 hover:text-white rounded-2xl font-bold uppercase text-[9px] tracking-[0.2em] h-12 transition-all"
+                        className="flex-1 h-12 rounded-xl text-white/50 hover:text-white hover:bg-white/5 border border-white/10 font-semibold text-sm transition-all"
                       >
-                        Change Order
+                        Go Back
                       </Button>
                       <Button
-                        data-testid="button-finish-payment"
+                        data-testid="button-submit-order"
                         type="submit"
-                        className="flex-[2] bg-gradient-to-r from-[#25F4EE] to-[#1ad4cc] hover:opacity-90 text-black font-black uppercase tracking-widest h-12 rounded-2xl text-sm shadow-xl shadow-[#25F4EE]/15 transition-all active:scale-[0.98]"
+                        className="flex-[2] h-12 rounded-xl bg-[#25F4EE] hover:bg-[#1ad4cc] text-black font-bold text-sm uppercase tracking-wider transition-all active:scale-[0.98] shadow-lg shadow-[#25F4EE]/15"
                       >
-                        Confirm Payment ✓
+                        Submit Order
                       </Button>
                     </div>
-                  </div>
-                )}
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
 
-        {/* Footer */}
-        <div className="flex items-center justify-center gap-3 py-2 opacity-25">
-          <div className="h-px flex-1 bg-white/20"></div>
-          <p className="text-[8px] text-white font-bold uppercase tracking-[0.3em] whitespace-nowrap flex items-center gap-1">
-            <CheckCircle className="w-2.5 h-2.5" /> Secured Transaction
-          </p>
-          <div className="h-px flex-1 bg-white/20"></div>
-        </div>
+            {/* Secured note */}
+            <p className="text-center text-white/20 text-[10px] font-semibold uppercase tracking-widest pb-4">
+              🔒 &nbsp; Secured &amp; Confidential Transaction
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
