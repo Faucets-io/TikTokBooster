@@ -24,24 +24,19 @@ iframe[src*="replit.com"],
   --card-foreground: 20 14.3% 4.1%;
   --border: 20 5.9% 90%;
   --input: 20 5.9% 90%;
-  --primary: 180 92% 56%; /* TikTok Teal #25F4EE */
+  --primary: 180 92% 56%;
   --primary-foreground: 211 100% 99%;
   --secondary: 60 4.8% 95.9%;
   --secondary-foreground: 24 9.8% 10%;
   --accent: 60 4.8% 95.9%;
   --accent-foreground: 24 9.8% 10%;
-  --destructive: 346 100% 58%; /* TikTok Pink #FE2C55 */
+  --destructive: 346 100% 58%;
   --destructive-foreground: 60 9.1% 97.8%;
   --ring: 20 14.3% 4.1%;
   --radius: 0.5rem;
-  
-  /* TikTok specific colors */
+
   --tiktok-teal: 180 92% 56%;
   --tiktok-pink: 346 100% 58%;
-  --tiktok-black: 0 0% 0%;
-  --tiktok-white: 0 0% 100%;
-  --tiktok-gray: 0 0% 97%;
-  --tiktok-darkgray: 0 0% 11%;
 }
 
 .dark {
@@ -71,41 +66,108 @@ iframe[src*="replit.com"],
   * {
     @apply border-border;
   }
-
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-[#050505] text-foreground;
+  }
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
-  .tiktok-gradient {
-    @apply bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] bg-clip-text text-transparent;
+  /* TikTok dual-color gradient text */
+  .tiktok-gradient-text {
+    background: linear-gradient(90deg, #25F4EE, #FE2C55);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-  
-  .tiktok-btn-gradient {
-    @apply bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] hover:from-[#20E5DF] hover:to-[#F01B48];
+
+  /* Glitch text effect — TikTok signature */
+  .text-glitch {
+    position: relative;
+    display: inline-block;
   }
-  
-  .counter-item {
-    @apply relative overflow-hidden;
+  .text-glitch::before,
+  .text-glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
   }
-  
-  .counter-item::before {
-    content: '';
-    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-[#25F4EE] to-[#FE2C55];
-    animation: loading 3s infinite;
+  .text-glitch::before {
+    color: #25F4EE;
+    animation: glitch-before 4s infinite;
+    clip-path: polygon(0 30%, 100% 30%, 100% 50%, 0 50%);
   }
-  
-  .font-montserrat {
-    font-family: 'Montserrat', sans-serif;
+  .text-glitch::after {
+    color: #FE2C55;
+    animation: glitch-after 4s infinite;
+    clip-path: polygon(0 55%, 100% 55%, 100% 70%, 0 70%);
   }
-  
-  .font-inter {
-    font-family: 'Inter', sans-serif;
+
+  /* Shimmer gradient on text */
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      #fff 0%,
+      #25F4EE 30%,
+      #FE2C55 50%,
+      #25F4EE 70%,
+      #fff 100%
+    );
+    background-size: 400% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s linear infinite;
+  }
+
+  /* Card glow on hover */
+  .card-glow-pink:hover {
+    box-shadow: 0 0 40px rgba(254, 44, 85, 0.12), 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .card-glow-teal:hover {
+    box-shadow: 0 0 40px rgba(37, 244, 238, 0.12), 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  /* Ticker / marquee wrapper */
+  .ticker-track {
+    display: flex;
+    width: max-content;
+  }
+
+  /* Dot grid background */
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  /* Line grid background */
+  .line-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 72px 72px;
   }
 }
 
-@keyframes loading {
-  0% { width: 0%; }
-  100% { width: 100%; }
+/* Glitch keyframes (raw, not in tailwind) */
+@keyframes glitch-before {
+  0%, 90%, 100% { transform: translate(0); opacity: 0; }
+  91%           { transform: translate(-3px, 1px); opacity: 0.8; }
+  93%           { transform: translate(3px, -1px); opacity: 0.8; }
+  95%           { transform: translate(-2px, 0); opacity: 0.8; }
+  97%           { transform: translate(2px, 1px); opacity: 0.8; }
+  99%           { transform: translate(0); opacity: 0; }
+}
+@keyframes glitch-after {
+  0%, 92%, 100% { transform: translate(0); opacity: 0; }
+  93%           { transform: translate(3px, -1px); opacity: 0.7; }
+  95%           { transform: translate(-3px, 1px); opacity: 0.7; }
+  97%           { transform: translate(2px, -1px); opacity: 0.7; }
+  99%           { transform: translate(0); opacity: 0; }
 }
