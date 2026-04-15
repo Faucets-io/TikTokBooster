@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Flame, Rocket, Heart, Eye, Users, Star,
@@ -6,7 +7,6 @@ import {
   TrendingUp, Award, MessageCircle, Play,
 } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
-import OrderForm from "@/components/OrderForm";
 
 /* ─────────────────────────────────────────
    DATA
@@ -163,14 +163,14 @@ function Navbar() {
         </div>
 
         {/* CTA */}
-        <a href="#order">
+        <Link href="/order">
           <Button
             data-testid="button-nav-cta"
             className="bg-[#FE2C55] hover:bg-[#e02449] text-white font-bold text-xs h-9 px-5 rounded-xl shadow-lg shadow-[#FE2C55]/20 transition-all hover:shadow-[#FE2C55]/30"
           >
             Get Started
           </Button>
-        </a>
+        </Link>
       </div>
     </nav>
   );
@@ -305,14 +305,14 @@ function Hero() {
 
         {/* CTA row */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-          <a href="#order">
+          <Link href="/order">
             <Button
               data-testid="button-hero-cta"
               className="h-14 px-9 bg-[#FE2C55] hover:bg-[#e02449] text-white font-black text-base rounded-2xl shadow-2xl shadow-[#FE2C55]/30 transition-all hover:scale-[1.03] active:scale-[0.98] gap-2.5"
             >
               Start Growing Now <ArrowRight className="w-5 h-5" />
             </Button>
-          </a>
+          </Link>
           <a href="#services">
             <Button
               variant="ghost"
@@ -388,7 +388,7 @@ function Services() {
         {SERVICES_DATA.map((svc) => {
           const Icon = svc.icon;
           return (
-            <a key={svc.id} href="#order" className="group block">
+            <Link key={svc.id} href="/order" className="group block">
               <div className={`relative h-full p-6 rounded-2xl border bg-white/[0.03] hover:bg-white/[0.06] transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-1.5 ${
                 svc.hot ? "border-white/12" : "border-white/6"
               }`}
@@ -452,7 +452,7 @@ function Services() {
                   <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-white/50 group-hover:translate-x-1 transition-all duration-200" />
                 </div>
               </div>
-            </a>
+            </Link>
           );
         })}
       </div>
@@ -607,25 +607,31 @@ function TrustSection() {
 }
 
 /* ─────────────────────────────────────────
-   ORDER SECTION
+   CTA BANNER
 ───────────────────────────────────────── */
-function OrderSection() {
+function CtaBanner() {
   return (
-    <section id="order" className="py-20 px-4 relative">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#FE2C55]/25 to-transparent" />
+    <section className="py-24 px-4 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#FE2C55] rounded-full blur-[250px] opacity-[0.04]" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] bg-[#FE2C55] rounded-full blur-[160px] opacity-[0.05]" />
       </div>
-
-      <div className="max-w-md mx-auto relative z-10">
-        <div className="text-center mb-10">
-          <p className="text-[#FE2C55] text-[10px] font-black uppercase tracking-[0.35em] mb-3">Place Your Order</p>
-          <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight">
-            Ready to Go <span className="tiktok-gradient-text">Viral?</span>
-          </h2>
-          <p className="text-white/40 text-sm mt-2">Fill in your details below and get started in minutes.</p>
-        </div>
-        <OrderForm />
+      <div className="max-w-2xl mx-auto text-center relative z-10 space-y-6">
+        <p className="text-[#FE2C55] text-[10px] font-black uppercase tracking-[0.35em]">Get Started Today</p>
+        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+          Ready to Go <span className="tiktok-gradient-text">Viral?</span>
+        </h2>
+        <p className="text-white/40 text-base leading-relaxed max-w-md mx-auto">
+          Thousands of Nigerian creators are already growing with TikTokBoost. Place your first order in under 2 minutes.
+        </p>
+        <Link href="/order">
+          <Button
+            data-testid="button-cta-banner"
+            className="h-14 px-10 bg-[#FE2C55] hover:bg-[#e02449] text-white font-black text-base rounded-2xl shadow-2xl shadow-[#FE2C55]/25 transition-all hover:scale-[1.03] active:scale-[0.98] gap-2.5 mt-2"
+          >
+            Place Your Order Now <ArrowRight className="w-5 h-5" />
+          </Button>
+        </Link>
       </div>
     </section>
   );
@@ -674,7 +680,7 @@ export default function Home() {
       <HowItWorks />
       <TestimonialsSection />
       <TrustSection />
-      <OrderSection />
+      <CtaBanner />
       <Footer />
     </div>
   );
